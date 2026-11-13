@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# drill — prove that restores work. Takes a random file from the newest
+# /home snapshot, and from every enabled restic backup, and compares it
+# with the snapshot copy. Exits non-zero if anything cannot be restored.
+set -eu
+
+snap=$(find /home/.snapshots -mindepth 2 -maxdepth 2 -name snapshot 2>/dev/null | sort -V | tail -1)
+[ -n "$snap" ] || { echo "drill: no snapshots under /home/.snapshots" >&2; exit 1; }
+
+rel=$(cd "$snap/$USER" && find doc dev -type f -size +0 -size -5M 2>/dev/null | shuf -n1)
+[ -n "$rel" ] || { echo "drill: no candidate file in $snap/$USER/{doc,dev}" >&2; exit 1; }
+src=$snap/$USER/$rel
+sha256sum "$src" >/dev/null # the snapshot copy is readable
+echo "snapshot  ok  $rel  ($(basename "$(dirname "$snap")"))"
+
+fail=0
+for unit in $(systemctl list-unit-files 'restic-backups-*.service' --no-legend 2>/dev/null | awk '{print $1}'); do
+  name=${unit#restic-backups-}
+  name=${name%.service}
+  tmp=$(mktemp -d)
+  # restic-<name> is the wrapper NixOS generates with repo + password set
+  if sudo "restic-$name" restore latest --include "/home/$USER/$rel" --target "$tmp" >/dev/null 2>&1 &&
+    sudo cmp -s "$tmp/home/$USER/$rel" "$src"; then
+    echo "$name  ok  $rel"
+  else
+    echo "$name  FAILED (missing from the backup, or newer than the last run)  $rel"
+    fail=1
+  fi
+  sudo rm -rf "$tmp"
+done
+exit $fail

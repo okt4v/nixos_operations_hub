@@ -1,0 +1,7 @@
+result
+result-*
+*.qcow2
+.direnv
+# written by nwg-displays, not used
+config/sway/outputs
+config/sway/workspaces

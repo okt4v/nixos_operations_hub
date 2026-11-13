@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# note [daily|find] — notes in ~/doc/notes (also an Obsidian vault).
+#   note daily   open today's note
+#   note find    full-text search, open the hit in nvim
+set -eu
+
+vault=$HOME/doc/notes
+mkdir -p "$vault/daily"
+
+case ${1:-daily} in
+  daily) exec nvim "$vault/daily/$(date +%F).md" ;;
+  find)
+    hit=$(rg --line-number --no-heading --smart-case . "$vault" 2>/dev/null | sed "s#^$vault/##" | fuzzel --dmenu --width 90 --prompt 'notes> ') || exit 0
+    file=${hit%%:*}
+    rest=${hit#*:}
+    exec kitty nvim "+${rest%%:*}" "$vault/$file"
+    ;;
+  *) echo "usage: note daily|find" >&2; exit 1 ;;
+esac

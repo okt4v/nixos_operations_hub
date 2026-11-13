@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# mkt [hist <symbol> | --bar] — market data from Yahoo Finance.
+#   mkt                 quotes for config/market/watchlist (cached 5 minutes)
+#   mkt hist <symbol>   full daily history -> ~/dat/mkt/<symbol>.parquet
+#   mkt --bar           first watchlist entry as text for waybar
+set -eu
+
+hub=$(dirname "$(dirname "$(readlink -f "$0")")")
+store=$HOME/dat/mkt
+cache=$store/quotes.tsv
+api=https://query1.finance.yahoo.com/v8/finance/chart
+get() { curl -fsS -m 15 -A 'Mozilla/5.0' "$api/$1?$2"; }
+mkdir -p "$store"
+
+quotes() { # refresh the cache when older than 5 minutes; keep the old one when offline
+  if [ ! -s "$cache" ] || [ -n "$(find "$cache" -mmin +5)" ]; then
+    tmp=$(mktemp)
+    grep -vE '^\s*(#|$)' "$hub/config/market/watchlist" | while read -r sym; do
+      get "$sym" 'range=1d&interval=1d' 2>/dev/null |
+        jq -r '.chart.result[0].meta | [.symbol, .regularMarketPrice, .currency,
+          ((.regularMarketPrice / .chartPreviousClose - 1) * 100 | . * 100 | round / 100)] | @tsv' || true
+    done >"$tmp"
+    if [ -s "$tmp" ]; then mv "$tmp" "$cache"; else rm -f "$tmp"; fi
+  fi
+  cat "$cache" 2>/dev/null || true
+}
+
+case ${1:-} in
+  "") quotes | awk -F'\t' '{ c = ($4 < 0) ? "\033[31m" : "\033[32m"; printf "%-10s %12.2f %-4s %s%+6.2f%%\033[0m\n", $1, $2, $3, c, $4 }' ;;
+  --plain) quotes | awk -F'\t' '{ printf "%-10s %10.2f %-4s %+6.2f%%\n", $1, $2, $3, $4 }' ;;
+  --bar) quotes | awk -F'\t' 'NR == 1 { printf "%s %.2f %+.2f%%\n", $1, $2, $4 }' ;;
+  hist)
+    sym=${2:?usage: mkt hist <symbol>}
+    csv=$(mktemp --suffix=.csv)
+    trap 'rm -f "$csv"' EXIT
+    get "$sym" 'period1=0&period2=9999999999&interval=1d' | jq -r '.chart.result[0] | .indicators.quote[0] as $q | .indicators.adjclose[0].adjclose as $a
+      | ["date","open","high","low","close","adjclose","volume"],
+        ([.timestamp, $q.open, $q.high, $q.low, $q.close, $a, $q.volume] | transpose[]
+          | select(.[4] != null) | .[0] |= (. | strftime("%Y-%m-%d"))) | @csv' >"$csv"
+    duckdb -c "copy (select * from read_csv_auto('$csv')) to '$store/$sym.parquet' (format parquet)"
+    echo "$store/$sym.parquet ($(($(wc -l <"$csv") - 1)) days)"
+    ;;
+  *) echo "usage: mkt [hist <symbol> | --bar]" >&2; exit 1 ;;
+esac

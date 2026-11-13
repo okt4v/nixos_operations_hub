@@ -1,0 +1,162 @@
+# User guide
+
+How to use a machine installed from this repo. Installing is in [INSTALL.md](INSTALL.md).
+
+`Super` is the Windows key. Every key binding on the machine is searchable with `Alt+Ctrl+K`
+(or `hub keys`); that list is read from the live config, so it is the reference. This guide
+only names the bindings you need daily.
+
+## The three commands to remember
+
+| Command | What it does |
+|---|---|
+| `hub` | Fuzzy menu of every operation, with a preview of what each one runs. `hub <recipe>` runs one directly; `h` is an alias. |
+| `pj` | Jump to a project (`Super+P`). |
+| `mode` | Switch context (`Super+O`). |
+
+If something looks wrong: `hub status` (overview), `hub health` (problems), `hub doctor`
+(one-time setup steps still open).
+
+## Changing the system
+
+The repo lives at `~/tec/nix`.
+
+- **Dotfiles** in `config/` and **scripts** in `bin/` are linked live. Edit, reload the program
+  (`Super+Shift+C` for sway), done. No rebuild. Exception: `config/kanata` needs `hub switch`.
+- **Everything else** (`modules/`, `home/`, `hosts/`): edit, then `hub switch`.
+  `hub test` activates until the next reboot only; `hub rollback` returns to the previous generation.
+- `hub diff` shows which packages a switch would change. `hub check` evaluates all hosts and lints the scripts.
+- New files must be `git add`ed before nix sees them.
+- **Updates:** a weekly timer prepares an update on the branch `upd` and notifies you. `hub update` applies it.
+- `hub gc` deletes old generations (keeps 5). `hub search <words>` searches nixpkgs. `, <program>` runs a program once without installing it.
+- `hub vm [host]` boots a host's config in a throwaway VM window (password `test`). `Super+Shift+Escape` gives your shortcuts back to the host.
+
+## Desktop
+
+| Key | Action |
+|---|---|
+| `Super+Return` | Terminal |
+| `Super+Space` | App launcher |
+| `Super+Shift+Space` | `menu`: windows, projects, modes, widgets, hosts, notes, grab, focus, clipboard, calc, emoji, audio, wifi, bluetooth, pass, theme, power |
+| `Super+Q` | Close window |
+| `Super+H/J/K/L` | Focus; with `Shift`: move |
+| `Super+1…` | Workspace; `Super+Tab` cycles |
+| `Super+F` / `Super+Shift+F` | Fullscreen / floating |
+| `Super+R` / `Super+Shift+R` | Resize / move mode (`Esc` leaves) |
+| `Super+C` | Clipboard history |
+| `Super+T` | Dark/light theme, everywhere, instantly |
+| `Alt+Ctrl+L` | Lock |
+
+**Scratchpads** toggle a floating window and start the app on first use:
+`` Super+` `` terminal, `Super+Ctrl+N` note, `Super+Ctrl+C` calculator, `Super+Ctrl+A` agenda,
+`Super+Ctrl+P` KeePassXC, `Super+Ctrl+M` music.
+
+**Screenshots:** `Print` region → annotate → clipboard; `Super+Print` region → file;
+`Shift+Print` whole screen → file. Files land in `~/med/img/shot`.
+**Recording:** `Super+F9` screen, `Super+Shift+F9` region; the same key stops it. Files land in `~/med/vid/rec`.
+
+**Screen grab** (`Super+G`): select a region and get its `text` (OCR), `tex` (formula → LaTeX),
+`qr` payload or `color` in the clipboard.
+
+**Keyboard layer:** Caps is Esc when tapped, Ctrl when held. Hold Space and press:
+`h j k l` arrows, `u i o p` Home/PgDn/PgUp/End, `n` Backspace, `m` Delete,
+`a s d f` → `{ [ ] }`, `g` → `\`, `q` → `|`, `w` → `~`, `e` → `@`.
+
+**Monitors:** `hub mon` opens a drag-and-drop arranger; `hub mon save <name>` stores the layout
+as a profile that is applied automatically when those monitors are connected.
+
+**Wallpaper widgets** (`Super+Shift+W` or `widgets`): agenda, tasks, focus, projects, system, net,
+markets, weather, music, inbox, month. They show only on empty workspaces.
+`widgets on|off <name>`, `widgets show|hide`, `widgets pos top|bottom`.
+Location for the weather: `config/eww/weather.conf`.
+
+## Modes
+
+`mode <name>` enters a mode, `mode -` leaves it, `mode` alone asks. The bar shows the current
+one. Entering a mode first runs the previous mode's clean-up.
+
+| Mode | For |
+|---|---|
+| `dev` | Editor on 1, browser on 2 |
+| `school` | Notes, references, cards |
+| `work` | Separate browser profile, work identity, personal noise off |
+| `fin` | Vault open, quotes, ledger |
+| `ops` | Homelab: host picker, deploy recipes |
+| `hack` | Switches to the `hack` system profile (VPN kill switch, random MAC), lab network up, works in `~/hkng` |
+| `meet` / `present` | Nothing pops up, the screen stays on |
+| `game` | Full power, no interruptions |
+| `battery` | Stretch a charge |
+| `travel` | Untrusted networks: VPN forced, no local sharing, quick lock |
+
+A mode is one file, `config/mode/<name>.sh`, with an `up()` and a `down()` function. Add a file to add a mode.
+
+## Projects
+
+- `hub new <template> <name>` creates `~/dev/active/<name>` with its own devshell, direnv and git.
+  Templates: `py`, `quant`, `node`, `c`, `go`, `pen`, `tex`.
+  Libraries belong in the project's `flake.nix`, never in the system.
+- `pj [query]` opens or resumes the project's tmux session (nvim plus a shell) and starts time tracking.
+- `pj -s [plan|wip|paused|done]` sets the status of the project you are in; `pj -l` lists all. Done projects sort last.
+- `hub svc up|down` runs the project's services (Postgres, Redis, …) declared in its `devenv.nix`.
+- `hub agent <name> [command]` runs a coding agent in its own git worktree, jailed: it can write only there and cannot see your home, SSH keys, vault or secrets.
+- `hub report` shows the week's tracked time by mode and project.
+- Commits are SSH-signed, and a pre-commit hook blocks commits that contain secrets.
+  Folders `~/dev/work`, `~/doc/work` and `~/doc/school` use their own git identity.
+- In nvim: `<leader>hh` hub menu, `<leader>hs` project status, `:Hub <recipe>`, `:Ask <question>`.
+
+Shell: `Ctrl+R` searches history (atuin), `cd <fragment>` jumps to a known directory when the
+path does not exist, `mkcd`, `x <archive>` extracts. Aliases: `g` git, `lg` lazygit, `v` nvim,
+`t` task, `nd` nix develop.
+
+## Notes, tasks, focus
+
+- `Super+N` captures one line into `~/doc/notes/inbox.md`. Start it with `t ` and it becomes a task instead.
+- `Super+Ctrl+D` opens today's daily note; `note find` searches all notes. `~/doc/notes` is also an Obsidian vault.
+- `focus [minutes] [subject]` starts a focus block: notifications held, distracting sites blocked,
+  time logged. `focus stop` ends it early. The blocked sites are `hub.focus.sites` in the host file.
+- Calendar (after setup): `Super+Ctrl+A`; the next event shows in the bar.
+
+## LaTeX
+
+- `hub new tex` picks one of your templates (every folder in `~/tpl/latex` is one) and creates the document in `~/doc/school|work|personal`.
+- `fig <name>` draws a figure in Inkscape and puts the `\includegraphics` line in the clipboard.
+- `hub untex <file.pdf>` turns a PDF or scan back into LaTeX source. The first run downloads several GB of models.
+
+## Money
+
+- `hub vault open|close|status`: the separately encrypted directory `~/vlt`. `~/fin` points into it. It closes on lock and suspend.
+- `hub fava` opens the vault and the accounting dashboard (ledger in `~/fin/ledger`).
+- `hub mkt` prints quotes for `config/market/watchlist`; `hub mkt hist <symbol>` stores daily history as parquet in `~/dat/mkt`.
+- `hub new quant <name>` creates a research project (polars, duckdb, numba, jupyter).
+
+## Safety
+
+- `/home` is snapshotted automatically. Old versions of a file are under `/home/.snapshots/<n>/snapshot/`.
+- `hub bak` runs every enabled backup now. Backups are off until you enable `hub.backup.*` in the host file.
+- `hub drill` restores a random file from a snapshot and from each backup and compares it.
+- `hub sec` edits the encrypted secrets.
+- `hub charge` charges to 100% once; otherwise the battery stops at 80%.
+
+## Lab and homelab
+
+- `hub lab up|down|reset <name>`, `hub lab list`: disposable VMs from base images in `~/tec/vm/<name>.qcow2`,
+  on an isolated network that cannot reach the LAN. `reset` returns one to its base state.
+- `hp` picks a machine from the tailnet or SSH config and opens SSH with a resumed tmux session.
+- `hub deploy <host>` rebuilds a remote host from here; `hub install <host> <ip>` installs one. `hub iso` builds the installer.
+- `hub net` shows wifi, address, VPN and tailnet state.
+- `ask <question>` queries the local model (needs `hub.ai.enable`); it reads stdin too: `git diff | ask "review this"`.
+
+## Home directory
+
+| Folder | Contents |
+|---|---|
+| `doc` | `personal`, `work`, `school`, `notes` |
+| `dev` | `active`, `work`, `finished`, `practice`, `testing` |
+| `dl` | Downloads |
+| `tpl` | Templates (`latex`) |
+| `med` | `img/shot`, `img/wall`, `vid/rec` |
+| `ent` | `games` |
+| `hkng` | Security work |
+| `dat` | `bak`, `arc`, `mkt` |
+| `tec` | `nix` (this repo), `vm`, `lab`, `sftw` |
+| `fin` → `vlt/fin` | Finance, inside the vault |

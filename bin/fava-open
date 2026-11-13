@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# fava-open — open the accounting dashboard. Opens the vault (the ledger is
+# in ~/fin/ledger), creates a starter ledger on first use, starts fava.
+set -eu
+
+ledger=$HOME/fin/ledger/main.beancount
+vault open
+if [ ! -f "$ledger" ]; then
+  mkdir -p "$(dirname "$ledger")"
+  cat >"$ledger" <<LEDGER
+option "title" "Finances"
+option "operating_currency" "EUR"
+
+$(date +%Y)-01-01 open Assets:Bank:Checking EUR
+$(date +%Y)-01-01 open Assets:Broker
+$(date +%Y)-01-01 open Income:Salary EUR
+$(date +%Y)-01-01 open Expenses:Living EUR
+$(date +%Y)-01-01 open Equity:Opening EUR
+LEDGER
+  (cd "$(dirname "$ledger")" && git init -q && git add -A)
+fi
+pgrep -x fava >/dev/null || { setsid -f fava --port 5001 "$ledger" >/dev/null 2>&1; sleep 1; }
+setsid -f xdg-open http://localhost:5001 >/dev/null 2>&1

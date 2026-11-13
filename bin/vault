@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# vault open|close|status — the separately encrypted directory ~/vlt.
+# Ciphertext lives in ~/dat/vlt (and is what gets backed up); ~/fin points
+# into the vault. The passphrase comes from KeePassXC if it holds an entry
+# with attributes  hub=vault  (secret service), otherwise you are asked.
+set -eu
+
+cipher=$HOME/dat/vlt
+plain=$HOME/vlt
+is_open() { mountpoint -q "$plain"; }
+
+case ${1:-status} in
+  open)
+    is_open && exit 0
+    mkdir -p "$cipher" "$plain"
+    if [ ! -f "$cipher/gocryptfs.conf" ]; then
+      echo "First use: creating the vault. Store the master key it prints in KeePassXC."
+      gocryptfs -init "$cipher"
+    fi
+    if pass=$(secret-tool lookup hub vault 2>/dev/null) && [ -n "$pass" ]; then
+      printf '%s' "$pass" | gocryptfs -q -stdin "$cipher" "$plain"
+    else
+      gocryptfs -q "$cipher" "$plain"
+    fi
+    mkdir -p "$plain/fin/portfolio"
+    ;;
+  close)
+    is_open || exit 0
+    fusermount -u "$plain" || { notify-send -u critical "Vault still open" "A program is using ~/vlt" 2>/dev/null; exit 1; }
+    ;;
+  status) if is_open; then echo open; else echo closed; fi ;;
+  *) echo "usage: vault open|close|status" >&2; exit 1 ;;
+esac

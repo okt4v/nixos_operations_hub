@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# pad <name> — toggle a scratchpad window; the app starts on first use.
+# Window rules (floating, size, scratchpad) live in config/sway/windowrules.conf.
+set -eu
+
+case ${1:-} in
+  term) match='app_id="pad-term"' cmd=(kitty --app-id pad-term) ;;
+  note) match='app_id="pad-note"' cmd=(kitty --app-id pad-note nvim "$HOME/doc/notes/inbox.md") ;;
+  agenda) match='app_id="pad-agenda"' cmd=(kitty --app-id pad-agenda ikhal) ;;
+  calc) match='app_id="qalculate-gtk"' cmd=(qalculate-gtk) ;;
+  pass) match='app_id="org.keepassxc.KeePassXC"' cmd=(keepassxc) ;;
+  music) match='class="Spotify"' cmd=(spotify) ;;
+  *) echo "usage: pad term|note|agenda|calc|pass|music" >&2; exit 1 ;;
+esac
+
+swaymsg "[$match] scratchpad show" >/dev/null 2>&1 || exec "${cmd[@]}"

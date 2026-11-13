@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# mon [save <name> | list] — monitors.
+#   mon               drag-and-drop arranger (applies live)
+#   mon save <name>   store the current layout as a kanshi profile
+#   mon list          profiles that exist
+set -eu
+
+cfg=$(dirname "$(dirname "$(readlink -f "$0")")")/config/kanshi/config
+
+case ${1:-} in
+  "") exec nwg-displays ;;
+  list) sed -nE 's/^profile (\S+).*/\1/p' "$cfg" ;;
+  save)
+    name=${2:?usage: mon save <name>}
+    ! grep -qE "^profile $name( |\{)" "$cfg" || { echo "mon: profile '$name' exists, remove it from $cfg first" >&2; exit 1; }
+    {
+      printf '\nprofile %s {\n' "$name"
+      swaymsg -t get_outputs | jq -r '.[] | if .active
+        then "    output \(.name) mode \(.current_mode.width)x\(.current_mode.height)@\(.current_mode.refresh / 1000)Hz position \(.rect.x),\(.rect.y) scale \(.scale)"
+        else "    output \(.name) disable" end'
+      echo "}"
+    } >>"$cfg"
+    kanshictl reload 2>/dev/null || true
+    echo "saved '$name' to $cfg"
+    ;;
+  *) echo "usage: mon [save <name> | list]" >&2; exit 1 ;;
+esac

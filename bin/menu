@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# menu [section] — one launcher for everything that isn't "start an app".
+# Without a section it lists them. Sections are plain case branches: add one
+# by adding a branch and its name to the list.
+set -eu
+
+pick() { fuzzel --dmenu --prompt "$1> "; }
+
+case ${1:-} in
+  "")
+    sec=$(printf '%s\n' windows projects modes widgets hosts notes grab focus clipboard calc emoji audio wifi bluetooth pass theme power | pick menu) || exit 0
+    exec "$0" "$sec"
+    ;;
+  windows)
+    id=$(swaymsg -t get_tree | jq -r '.. | objects | select(.pid != null and .type != "workspace")
+      | "\(.id)\t\(.app_id // .window_properties.class // "?")  \(.name)"' | pick window | cut -f1) || exit 0
+    swaymsg "[con_id=$id] focus" >/dev/null
+    ;;
+  projects) exec kitty pj ;;
+  modes) exec mode ;;
+  widgets) exec widgets ;;
+  hosts) exec hp ;;
+  notes) exec note find ;;
+  grab) exec grab "$(printf '%s\n' text tex qr color | pick grab)" ;;
+  focus)
+    what=$(printf '%s\n' 25 50 90 stop | pick 'focus minutes') || exit 0
+    exec focus "$what"
+    ;;
+  clipboard) cliphist list | pick clip | cliphist decode | wl-copy ;;
+  calc)
+    expr=$(pick calc </dev/null) || exit 0
+    res=$(qalc -t "$expr")
+    wl-copy "$res"
+    notify-send -t 4000 "$expr" "= $res (copied)"
+    ;;
+  emoji) BEMOJI_PICKER_CMD='fuzzel --dmenu --prompt emoji>' exec bemoji -c -n ;;
+  audio)
+    sink=$(pactl -f json list sinks | jq -r '.[] | "\(.name)\t\(.description)"' | pick output | cut -f1) || exit 0
+    pactl set-default-sink "$sink"
+    ;;
+  wifi) exec kitty impala ;;
+  bluetooth) exec kitty bluetui ;;
+  pass) exec pad pass ;;
+  theme) exec theme ;;
+  power)
+    case $(printf '%s\n' lock suspend logout reboot poweroff | pick power) in
+      lock) loginctl lock-session ;;
+      suspend) systemctl suspend ;;
+      logout) swaymsg exit ;;
+      reboot) systemctl reboot ;;
+      poweroff) systemctl poweroff ;;
+    esac
+    ;;
+  *) echo "menu: no section '$1'" >&2; exit 1 ;;
+esac

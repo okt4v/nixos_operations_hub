@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# mode [name|-] — switch context. Each mode is config/mode/<name>.sh defining
+# up() and/or down(). Switching runs the old mode's down, then the new up.
+#   mode          pick from a menu
+#   mode <name>   enter a mode
+#   mode -        leave the current mode
+#   mode --bar    print the current mode as JSON for waybar
+set -eu
+
+dir=$(dirname "$(dirname "$(readlink -f "$0")")")/config/mode
+state=${XDG_STATE_HOME:-$HOME/.local/state}/hub/mode
+mkdir -p "$(dirname "$state")"
+cur=$(cat "$state" 2>/dev/null || true)
+
+if [ "${1:-}" = --bar ]; then
+  printf '{"text":"%s","class":"%s"}\n' "$cur" "${cur:-none}"
+  exit 0
+fi
+
+names() { find "$dir" -name '*.sh' -printf '%f\n' | sed 's/\.sh$//' | sort; }
+new=${1:-$(names | fuzzel --dmenu --prompt 'mode> ' || true)}
+[ -n "$new" ] || exit 0
+[ "$new" = - ] && new=
+[ -z "$new" ] || [ -f "$dir/$new.sh" ] || { echo "mode: no mode '$new' (have: $(names | xargs))" >&2; exit 1; }
+
+# ── helpers for mode files ────────────────────────────────────────────────
+on() { ws=$1; shift; swaymsg "workspace number $ws; exec $*" >/dev/null; } # on <workspace> <command>
+pp() { powerprofilesctl set "$1" 2>/dev/null || true; }                    # pp performance|balanced|power-saver
+dnd() { if [ "$1" = on ]; then makoctl mode -a dnd; else makoctl mode -r dnd; fi >/dev/null 2>&1 || true; }
+running() { pgrep -x "$1" >/dev/null; }                                    # running <process> && skip starting it
+
+run() { # run <mode> <up|down> in a subshell so modes cannot leak into each other
+  (
+    up() { :; }
+    down() { :; }
+    # shellcheck source=/dev/null
+    . "$dir/$1.sh"
+    "$2"
+  )
+}
+
+[ -z "$cur" ] || run "$cur" down || echo "mode: '$cur' down failed" >&2
+echo "$new" >"$state"
+# time tracking follows the mode (`hub report`)
+if [ -n "$new" ]; then timew start "$new" >/dev/null 2>&1 || true; else timew stop >/dev/null 2>&1 || true; fi
+[ -z "$new" ] || run "$new" up
+pkill -RTMIN+8 waybar 2>/dev/null || true
+[ -z "$new" ] || notify-send -t 1500 "Mode: $new" 2>/dev/null || true

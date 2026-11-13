@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# vm [host] — boot a host's config in a throwaway VM window (default: this
+# machine's). The repo is shared live at hub.dir inside the VM.
+#   login: automatic; sudo/lock password: test; ssh -p 2222 oktav@localhost
+# While the VM runs, the host's sway shortcuts are switched off so Super+...
+# reaches the VM. Super+Shift+Escape gives them back; closing the VM does too.
+set -eu
+
+hub=$(dirname "$(dirname "$(readlink -f "$0")")")
+name=${1:-$(hostname)}
+dir=${XDG_RUNTIME_DIR:-/tmp}/hub-vm
+mkdir -p "$dir"
+
+nix build "$hub#nixosConfigurations.$name.config.system.build.vm" -o "$dir/result"
+rm -f "$dir/disk.qcow2"
+
+if [ -n "${SWAYSOCK:-}" ]; then
+  # a sway mode with a single binding: everything else passes to the window
+  swaymsg 'mode "vm" bindsym Mod4+Shift+Escape mode "default"' >/dev/null
+  swaymsg 'mode "vm"' >/dev/null
+  trap 'swaymsg "mode default" >/dev/null 2>&1 || true' EXIT
+fi
+
+HUB_SRC=$hub NIX_DISK_IMAGE=$dir/disk.qcow2 "$dir/result/bin/run-$name-vm" -display gtk,gl=on

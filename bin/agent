@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# agent <name> [command...] — run a coding agent in its own git worktree,
+# jailed: only that worktree (and the repo's .git, for commits) is writable;
+# your home, SSH keys, vault and secrets do not exist inside. Default command
+# is `claude`. Run from inside a git repository.
+set -eu
+
+name=${1:?usage: agent <name> [command...]}
+shift
+[ $# -gt 0 ] || set -- claude
+
+repo=$(git rev-parse --show-toplevel)
+wt=$(dirname "$repo")/$(basename "$repo")-$name
+[ -d "$wt" ] || git -C "$repo" worktree add "$wt" -b "agent/$name"
+mkdir -p "$HOME/.claude"
+touch "$HOME/.claude.json"
+
+hide=()
+for d in /run/secrets /run/secrets.d "/run/user/$(id -u)"; do [ ! -d "$d" ] || hide+=(--tmpfs "$d"); done
+
+exec bwrap \
+  --ro-bind / / --dev /dev --proc /proc --tmpfs /tmp \
+  --tmpfs "$HOME" "${hide[@]}" \
+  --bind "$wt" "$wt" --bind "$repo/.git" "$repo/.git" \
+  --bind "$HOME/.claude" "$HOME/.claude" --bind "$HOME/.claude.json" "$HOME/.claude.json" \
+  --ro-bind "$HOME/.config/git" "$HOME/.config/git" \
+  --setenv GIT_CONFIG_COUNT 1 --setenv GIT_CONFIG_KEY_0 commit.gpgsign --setenv GIT_CONFIG_VALUE_0 false \
+  --unsetenv SSH_AUTH_SOCK --die-with-parent --chdir "$wt" \
+  "$@"

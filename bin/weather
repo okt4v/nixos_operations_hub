@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# weather — current conditions and three days, for the location in
+# config/eww/weather.conf. Cached for 30 minutes; shows the old data offline.
+set -u
+
+hub=$(dirname "$(dirname "$(readlink -f "$0")")")
+lat=48.21 lon=16.37 name= # defaults, overridden by the file
+# shellcheck source=/dev/null
+. "$hub/config/eww/weather.conf"
+cache=${XDG_CACHE_HOME:-$HOME/.cache}/hub-weather.json
+
+if [ ! -s "$cache" ] || [ -n "$(find "$cache" -mmin +30)" ]; then
+  tmp=$(mktemp)
+  if curl -fsS -m 10 "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=3" -o "$tmp" 2>/dev/null && [ -s "$tmp" ]; then
+    mv "$tmp" "$cache"
+  else
+    rm -f "$tmp"
+  fi
+fi
+[ -s "$cache" ] || { echo "no weather data"; exit 0; }
+
+jq -r --arg name "${name:-}" '
+  def sky: if . == 0 then "clear" elif . <= 2 then "partly cloudy" elif . == 3 then "overcast"
+    elif . <= 48 then "fog" elif . <= 57 then "drizzle" elif . <= 67 then "rain"
+    elif . <= 77 then "snow" elif . <= 82 then "showers" elif . <= 86 then "snow showers" else "thunderstorm" end;
+  "\($name)  \(.current.temperature_2m | round)°  \(.current.weather_code | sky)  wind \(.current.wind_speed_10m | round) km/h",
+  ([.daily.time, .daily.temperature_2m_min, .daily.temperature_2m_max, .daily.precipitation_probability_max, .daily.weather_code]
+    | transpose[] | "\(.[0] | strptime("%Y-%m-%d") | strftime("%a"))  \(.[1] | round)°–\(.[2] | round)°  \(.[3] // 0)%  \(.[4] | sky)")' "$cache"

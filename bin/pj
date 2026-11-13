@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# pj — project jumper with a status per project.
+#   pj [query]       fuzzy-pick a project in ~/dev/*/* (most used first, done
+#                    last) and open or resume its tmux session: nvim + a shell
+#   pj -s [status]   set the status of the project you are in (asks if omitted)
+#   pj -l            list all projects with their status
+# Statuses: plan, wip, paused, done. A project without one shows "-".
+# They are kept in ~/.local/state/hub/projects (path<TAB>status), outside the
+# projects themselves, so nothing lands in their git history.
+set -eu
+
+root=$HOME/dev
+db=${XDG_STATE_HOME:-$HOME/.local/state}/hub/projects
+statuses="plan wip paused done"
+mkdir -p "$(dirname "$db")"
+touch "$db"
+
+# every project as "status<TAB>folder/name": zoxide order, done sorted last
+list() {
+  {
+    zoxide query -l 2>/dev/null | grep -E "^$root/[^/]+/[^/]+$" || true
+    find "$root" -mindepth 2 -maxdepth 2 -type d 2>/dev/null
+  } | awk '!seen[$0]++' | sed "s#^$root/##" |
+    awk -F'\t' 'NR == FNR { st[$1] = $2; next }
+      { s = ($0 in st) ? st[$0] : "-"; line = s "\t" $0
+        if (s == "done") late[++n] = line; else print line }
+      END { for (i = 1; i <= n; i++) print late[i] }' "$db" -
+}
+show() { awk -F'\t' '{ printf "%-7s %s\n", $1, $2 }'; }
+
+case ${1:-} in
+  -l)
+    list | show
+    exit 0
+    ;;
+  -s)
+    rel=${PWD#"$root"/}
+    [ "$rel" != "$PWD" ] && proj=$(printf '%s' "$rel" | cut -d/ -f1-2) && [ -d "$root/$proj" ] && [ "$proj" != "${proj%/*}" ] ||
+      { echo "pj: not inside a project (~/dev/<folder>/<name>)" >&2; exit 1; }
+    # shellcheck disable=SC2086 # the list is meant to split into words
+    new=${2:-$(printf '%s\n' $statuses | fzf --prompt="status of $proj> " --height=30% --reverse)}
+    case " $statuses " in *" $new "*) ;; *) echo "pj: status must be one of: $statuses" >&2; exit 1 ;; esac
+    { grep -vF "$proj"$'\t' "$db" || true; printf '%s\t%s\n' "$proj" "$new"; } >"$db.tmp"
+    mv "$db.tmp" "$db"
+    echo "$proj: $new"
+    exit 0
+    ;;
+esac
+
+pick=$(list | show | fzf --prompt='project> ' --query="${1:-}" --select-1 --height=60% --reverse)
+dir=$root/${pick##* }
+name=$(basename "$dir" | tr '.:' '__') # tmux forbids . and : in session names
+
+if ! tmux has-session -t "=$name" 2>/dev/null; then
+  tmux new-session -d -s "$name" -c "$dir" -n edit
+  # typed into the shell (not run as the window command) so direnv loads the
+  # devshell first and quitting nvim leaves a usable shell behind
+  tmux send-keys -t "=$name:edit" 'nvim .' Enter
+  tmux new-window -d -t "=$name" -c "$dir" -n sh
+fi
+zoxide add "$dir"
+# time tracking: current mode + project (`hub report`)
+mode=$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/hub/mode" 2>/dev/null || true)
+timew start ${mode:+"$mode"} "$name" >/dev/null 2>&1 || true
+
+if [ -n "${TMUX:-}" ]; then
+  tmux switch-client -t "=$name"
+else
+  exec tmux attach -t "=$name"
+fi

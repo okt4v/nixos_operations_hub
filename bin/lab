@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# lab up <name> | down <name> | reset <name> | list — disposable lab VMs.
+# A VM is a base image ~/tec/vm/<name>.qcow2 (install it once, e.g. Kali's
+# QEMU image or your Windows image). Every run uses a throwaway overlay, so
+# `reset` returns it to the base state. VMs sit on the isolated network
+# `lab` (10.66.0.0/24): they reach each other and this host, not the LAN.
+set -eu
+
+vms=$HOME/tec/vm
+virsh() { command virsh -c qemu:///system "$@"; }
+name=${2:-}
+need() { [ -n "$name" ] || { echo "usage: lab $1 <name>" >&2; exit 1; }; }
+
+case ${1:-list} in
+  list)
+    echo "base images:"; find "$vms" -maxdepth 1 -name '*.qcow2' -printf '  %f\n' 2>/dev/null | sed 's/\.qcow2$//'
+    echo "running:"; virsh list --name | grep '^lab-' | sed 's/^/  /' || true
+    ;;
+  up)
+    need up
+    base=$vms/$name.qcow2
+    [ -f "$base" ] || { echo "lab: no base image $base" >&2; exit 1; }
+    mkdir -p "$vms/.run"
+    ovl=$vms/.run/$name.qcow2
+    [ -f "$ovl" ] || qemu-img create -q -f qcow2 -b "$base" -F qcow2 "$ovl"
+    virsh net-start lab >/dev/null 2>&1 || true
+    virsh domstate "lab-$name" >/dev/null 2>&1 || virt-install --connect qemu:///system --name "lab-$name" \
+      --memory 4096 --vcpus 4 --import --disk "$ovl" --network network=lab \
+      --osinfo detect=on,require=off --graphics spice --transient --noautoconsole
+    exec virt-viewer -c qemu:///system "lab-$name"
+    ;;
+  down) need down; virsh destroy "lab-$name" ;;
+  reset)
+    need reset
+    virsh destroy "lab-$name" >/dev/null 2>&1 || true
+    rm -f "$vms/.run/$name.qcow2"
+    echo "lab-$name is back to its base image"
+    ;;
+  *) echo "usage: lab up|down|reset <name> | list" >&2; exit 1 ;;
+esac

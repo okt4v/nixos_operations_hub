@@ -1,0 +1,244 @@
+{
+    "layer": "top",
+    "position": "top",
+    "height": 26,
+    "spacing": 0,
+    "modules-left": [
+        "sway/workspaces",
+        "sway/mode",
+        "custom/mode",
+        "custom/focus",
+        "custom/launch1",
+        "custom/launch2",
+        "custom/launch3",
+        "custom/launch4",
+        "custom/launch5"
+    ],
+    "modules-center": [
+        "clock#time",
+        "clock#date",
+        "custom/agenda",
+        "custom/mkt"
+    ],
+    "modules-right": [
+        "privacy",
+        "custom/dnd",
+        "custom/vpn",
+        "custom/health",
+        "custom/hosts",
+        "custom/dwt",
+        "idle_inhibitor",
+        "cpu",
+        "memory",
+        "temperature",
+        "pulseaudio",
+        "bluetooth",
+        "network",
+        "custom/power-profile",
+        "battery",
+        "tray"
+    ],
+
+    "custom/launch1": {
+        "format": "zen",
+        "interval": "once",
+        "on-click": "zen-browser",
+        "tooltip": true,
+        "tooltip-format": "Zen Browser · Alt+1"
+    },
+    "custom/launch2": {
+        "format": "docs",
+        "interval": "once",
+        "on-click": "onlyoffice-desktopeditors",
+        "tooltip": true,
+        "tooltip-format": "OnlyOffice · Alt+2"
+    },
+    "custom/launch3": {
+        "format": "mail",
+        "interval": "once",
+        "on-click": "thunderbird",
+        "tooltip": true,
+        "tooltip-format": "Thunderbird · Alt+3"
+    },
+    "custom/launch4": {
+        "format": "sys",
+        "interval": "once",
+        "on-click": "kitty -e btop",
+        "tooltip": true,
+        "tooltip-format": "Btop · Alt+4"
+    },
+    "custom/launch5": {
+        "format": "music",
+        "interval": "once",
+        "on-click": "spotify",
+        "tooltip": true,
+        "tooltip-format": "Spotify · Alt+5"
+    },
+
+    "sway/workspaces": {
+        "disable-scroll": true,
+        "all-outputs": false,
+        "format": "{name}"
+    },
+    "custom/mode": {
+        "exec": "mode --bar",
+        "return-type": "json",
+        "interval": "once",
+        "signal": 8,
+        "on-click": "mode",
+        "tooltip": false
+    },
+    "custom/focus": {
+        "exec": "focus --bar",
+        "return-type": "json",
+        "interval": 30,
+        "signal": 9,
+        "on-click": "focus stop",
+        "tooltip": false
+    },
+    "custom/agenda": {
+        "exec": "khal list now 1d --format '{start-time} {title}' --day-format '' 2>/dev/null | head -1",
+        "interval": 300,
+        "on-click": "pad agenda",
+        "tooltip": false
+    },
+    "custom/mkt": {
+        "exec": "mkt --bar",
+        "interval": 300,
+        "on-click": "kitty --hold mkt",
+        "tooltip": false
+    },
+    "custom/hosts": {
+        "exec": "hp --bar",
+        "interval": 60,
+        "on-click": "hp",
+        "tooltip": false
+    },
+    "custom/health": {
+        "exec": "health --bar",
+        "return-type": "json",
+        "interval": 60,
+        "on-click": "kitty --hold health"
+    },
+    "privacy": {
+        "icon-size": 12,
+        "icon-spacing": 4,
+        "modules": [
+            { "type": "screenshare", "tooltip": true },
+            { "type": "audio-in", "tooltip": true }
+        ]
+    },
+    "custom/dnd": {
+        "exec": "makoctl mode | grep -qx dnd && echo dnd || echo",
+        "interval": 5,
+        "on-click": "makoctl mode -t dnd",
+        "tooltip": false
+    },
+    "custom/vpn": {
+        "exec": "net --bar",
+        "return-type": "json",
+        "interval": 10,
+        "on-click": "kitty --hold net"
+    },
+    "sway/mode": {
+        "format": "[{}]"
+    },
+
+    "custom/dwt": {
+        "exec": "swaymsg -t get_inputs -r | jq -r '.[] | select(.type==\"touchpad\") | if .libinput.dwt==\"enabled\" then \"pad off\" else \"pad on\" end'",
+        "interval": 2,
+        "on-click": "~/.config/sway/scripts/toggle-dwt.sh",
+        "tooltip": true,
+        "tooltip-format": "Toggle trackpad-while-typing"
+    },
+    "idle_inhibitor": {
+        "format": "{icon}",
+        "format-icons": {
+            "activated": "wake",
+            "deactivated": "idle"
+        },
+        "tooltip": false
+    },
+
+    "clock#time": {
+        "format": "{:%H:%M:%S}",
+        "interval": 1,
+        "tooltip": false
+    },
+    "clock#date": {
+        "format": "{:%a %d %b}",
+        "interval": 60,
+        "tooltip-format": "<tt>{calendar}</tt>",
+        "calendar": { "mode": "month", "weeks-pos": "left", "format": { "today": "<b><u>{}</u></b>" } }
+    },
+
+    "cpu": {
+        "format": "cpu {usage}%",
+        "interval": 2,
+        "on-click": "kitty -e btop",
+        "states": { "warning": 70, "critical": 90 },
+        "tooltip": false
+    },
+    "memory": {
+        "format": "mem {percentage}%",
+        "interval": 5,
+        "on-click": "kitty -e btop",
+        "states": { "warning": 70, "critical": 90 },
+        "tooltip": false
+    },
+    "temperature": {
+        "thermal-zone": 0,
+        "format": "{temperatureC}°C",
+        "critical-threshold": 80,
+        "interval": 5,
+        "tooltip": false
+    },
+    "pulseaudio": {
+        "format": "vol {volume}%",
+        "format-muted": "muted",
+        "on-click": "kitty -e wiremix",
+        "on-click-right": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
+        "on-scroll-up": "pactl set-sink-volume @DEFAULT_SINK@ +5%",
+        "on-scroll-down": "pactl set-sink-volume @DEFAULT_SINK@ -5%",
+        "tooltip": false
+    },
+    "bluetooth": {
+        "format": "bt off",
+        "format-on": "bt",
+        "format-disabled": "bt off",
+        "format-connected": "bt {device_alias}",
+        "format-connected-battery": "bt {device_alias} {device_battery_percentage}%",
+        "on-click": "kitty -e bluetui",
+        "tooltip": false
+    },
+    "network": {
+        "format-wifi": "wifi {signalStrength}%",
+        "format-ethernet": "eth",
+        "format-linked": "eth (no ip)",
+        "format-disconnected": "no net",
+        "interval": 5,
+        "on-click": "kitty -e impala",
+        "tooltip-format-wifi": "{essid}  {ipaddr}\n{frequency} GHz  ↓{bandwidthDownBytes} ↑{bandwidthUpBytes}",
+        "tooltip-format-ethernet": "{ifname}  {ipaddr}"
+    },
+    "custom/power-profile": {
+        "format": "pp {}",
+        "exec": "powerprofilesctl get | sed 's/performance/perf/;s/balanced/bal/;s/power-saver/save/'",
+        "interval": 3,
+        "on-click": "~/.config/sway/scripts/power-profile-pick.sh",
+        "tooltip": false
+    },
+    "battery": {
+        "bat": "BAT0",
+        "states": { "warning": 20, "critical": 10 },
+        "format": "bat {capacity}%",
+        "format-charging": "bat+ {capacity}%",
+        "format-full": "bat full",
+        "interval": 30,
+        "tooltip-format": "{timeTo}\n{power:.1f} W"
+    },
+    "tray": {
+        "spacing": 8,
+        "show-passive-items": true
+    }
+}

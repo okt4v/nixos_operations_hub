@@ -1,0 +1,14 @@
+# Monitor profiles. kanshi applies the first profile whose outputs are all
+# connected; with no match sway just extends to whatever is plugged in.
+# Arrange by drag and drop with `hub mon`, then `hub mon save <name>` appends
+# the current layout here as a new profile.
+
+profile desk {
+    output HDMI-A-1 mode 3840x2160@60Hz position 0,0 scale 2
+    output DP-8     mode 1920x1080@60Hz position 1920,0 scale 1
+    output eDP-1    mode 1920x1200@60Hz position 3840,0 scale 1
+}
+
+profile mobile {
+    output eDP-1 enable mode 1920x1200@60Hz position 0,0 scale 1
+}

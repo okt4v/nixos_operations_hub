@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# status — one-screen overview of this machine.
+set -u
+
+state=${XDG_STATE_HOME:-$HOME/.local/state}/hub
+row() { printf '\033[2m%-10s\033[0m %s\n' "$1" "${2:--}"; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+row system "$(nixos-version 2>/dev/null | cut -d' ' -f1)  generation $(readlink /nix/var/nix/profiles/system 2>/dev/null | grep -oE '[0-9]+' | head -1)"
+row mode "$(cat "$state/mode" 2>/dev/null)"
+row theme "$(cat "${XDG_CONFIG_HOME:-$HOME/.config}/pal/current/name" 2>/dev/null)"
+row power "$(powerprofilesctl get 2>/dev/null)$( [ -r /sys/class/power_supply/BAT0/capacity ] && printf '   battery %s%%' "$(cat /sys/class/power_supply/BAT0/capacity)")"
+row vault "$(vault status 2>/dev/null)"
+have mullvad && row vpn "$(mullvad status 2>/dev/null | head -1)"
+have tailscale && row tailnet "$(tailscale status --json 2>/dev/null | jq -r '.BackendState // empty')  $(hp --bar 2>/dev/null)"
+row focus "$(focus --text 2>/dev/null)"
+row tracked "$(timew summary :day 2>/dev/null | awk '$NF ~ /^[0-9]+:[0-9][0-9]:[0-9][0-9]$/ { t = $NF } END { print (t ? t : "0:00") " today" }')"
+row projects "$(pj -l 2>/dev/null | awk '{ n[$1]++ } END { printf "%d wip, %d plan, %d paused, %d done", n["wip"], n["plan"], n["paused"], n["done"] }')"
+row tasks "$(task rc.verbose=nothing +PENDING count 2>/dev/null) pending, inbox $(grep -c '^- ' "$HOME/doc/notes/inbox.md" 2>/dev/null || echo 0)"
+row snapshots "$(find /home/.snapshots -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)"
+
+problems=$(health 2>/dev/null)
+if [ -n "$problems" ]; then printf '\n\033[31mneeds attention\033[0m\n%s\n' "$problems"; else printf '\n\033[32mall good\033[0m\n'; fi

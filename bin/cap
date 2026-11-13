@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# cap [text] — capture one line. Goes to ~/doc/notes/inbox.md with a timestamp;
+# a line starting with "t " becomes a taskwarrior task instead.
+# Without arguments it asks in a launcher prompt.
+set -eu
+
+text=${*:-$(fuzzel --dmenu --lines 0 --width 60 --prompt 'capture> ' </dev/null || true)}
+[ -n "$text" ] || exit 0
+
+case $text in
+  "t "*)
+    task add "${text#t }" >/dev/null
+    notify-send -t 2000 "Task added" "${text#t }"
+    ;;
+  *)
+    printf -- '- %s %s\n' "$(date '+%F %H:%M')" "$text" >>"$HOME/doc/notes/inbox.md"
+    notify-send -t 2000 "Captured" "$text"
+    ;;
+esac

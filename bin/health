@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# health [--bar] — things that need attention: failed units, full disk,
+# stale snapshots or backups, a waiting update. Prints nothing when all is
+# fine; --bar gives JSON for waybar.
+set -u
+
+problems=()
+n=$(($(systemctl --failed --no-legend 2>/dev/null | wc -l) + $(systemctl --user --failed --no-legend 2>/dev/null | wc -l)))
+[ "$n" -eq 0 ] || problems+=("$n failed unit(s)")
+
+d=$(df --output=pcent / | tail -1 | tr -dc 0-9)
+[ "$d" -lt 85 ] || problems+=("disk ${d}% full")
+
+age_h() { echo $((($(date +%s) - $1) / 3600)); }
+if [ -d /home/.snapshots ]; then
+  last=$(find /home/.snapshots -mindepth 1 -maxdepth 1 -type d -printf '%T@\n' 2>/dev/null | sort -n | tail -1 | cut -d. -f1)
+  [ -n "$last" ] && [ "$(age_h "$last")" -lt 3 ] || problems+=("no snapshot in 3h")
+fi
+
+for unit in $(systemctl list-unit-files 'restic-backups-*.service' --no-legend 2>/dev/null | awk '{print $1}'); do
+  ts=$(systemctl show "$unit" -p ExecMainExitTimestamp --value)
+  name=${unit#restic-backups-}
+  if [ -z "$ts" ]; then problems+=("backup ${name%.service}: never ran"); continue; fi
+  h=$(age_h "$(date -d "$ts" +%s)")
+  [ "$h" -lt 168 ] || problems+=("backup ${name%.service}: $((h / 24))d old")
+done
+
+[ ! -s "${XDG_STATE_HOME:-$HOME/.local/state}/hub/update" ] || problems+=("update ready: hub update")
+
+if [ "${1:-}" = --bar ]; then
+  if [ ${#problems[@]} -eq 0 ]; then
+    echo '{"text":"","class":"ok"}'
+  else
+    printf '{"text":"! %d","class":"bad","tooltip":"%s"}\n' "${#problems[@]}" "$(printf '%s\\n' "${problems[@]}" | sed 's/\\n$//')"
+  fi
+elif [ ${#problems[@]} -gt 0 ]; then
+  printf '%s\n' "${problems[@]}"
+fi

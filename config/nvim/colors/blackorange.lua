@@ -1,0 +1,31 @@
+require("aether").load({
+  name = "blackorange",
+  colors = {
+    bg = "#000000",
+    dark_bg = "#0a0a0a",
+    darker_bg = "#050505",
+    lighter_bg = "#111111",
+    selection = "#1f1f1f",
+    black = "#000000",
+
+    muted = "#555555",
+    dark_fg = "#888888",
+    fg = "#f2f2f2",
+    light_fg = "#f8f8f8",
+    bright_fg = "#ffffff",
+
+    blue = "#ff8c00",
+    bright_blue = "#ffb347",
+    purple = "#cc5500",
+    bright_purple = "#ff6600",
+    cyan = "#ffa500",
+    bright_cyan = "#ffd700",
+    green = "#e07800",
+    bright_green = "#ffaa00",
+    orange = "#ff8c00",
+    red = "#ff4500",
+    bright_red = "#ff6347",
+    yellow = "#ffb347",
+    bright_yellow = "#ffc87a",
+  },
+})

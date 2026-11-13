@@ -1,0 +1,29 @@
+.
+└── user/
+    ├── doc/
+    │   ├── personal
+    │   ├── work
+    │   └── school
+    ├── dev/
+    │   ├── active
+    │   ├── finished
+    │   ├── practice
+    │   └── testing
+    ├── dl
+    ├── tpl/
+    │   └── latex
+    ├── med/
+    │   ├── img
+    │   └── vid
+    ├── ent/
+    │   └── games
+    ├── hkng
+    ├── dat/
+    │   ├── bak
+    │   └── arc
+    ├── tec/
+    │   ├── vm
+    │   ├── lab
+    │   └── sftw
+    └── fin/
+        └── portfolio

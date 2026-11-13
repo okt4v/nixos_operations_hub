@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# upd-check — weekly, from a timer: update the inputs on the branch `upd`
+# (in a separate worktree, your checkout is untouched), build the result and
+# record what would change. Nothing is activated; `hub update` applies it.
+set -eu
+
+hub=$(dirname "$(dirname "$(readlink -f "$0")")")
+wt=${XDG_CACHE_HOME:-$HOME/.cache}/hub-upd
+state=${XDG_STATE_HOME:-$HOME/.local/state}/hub/update
+mkdir -p "$(dirname "$state")"
+
+git -C "$hub" rev-parse HEAD >/dev/null 2>&1 || { echo "upd-check: the repo has no commit yet" >&2; exit 0; }
+git -C "$hub" worktree remove --force "$wt" 2>/dev/null || true
+git -C "$hub" worktree add -q -B upd "$wt" HEAD
+cd "$wt"
+
+nix flake update
+if git diff --quiet flake.lock; then
+  : >"$state"
+  exit 0
+fi
+nix build ".#nixosConfigurations.$(hostname).config.system.build.toplevel" -o "$wt/result"
+nvd diff /run/current-system "$wt/result" >"$state"
+git -c commit.gpgsign=false commit -q --no-verify -m "flake.lock: weekly update" flake.lock
+notify-send -t 0 "System update ready" "$(grep -cE '^\[[UC]' "$state" || true) package changes. Review: cat $state — apply: hub update" 2>/dev/null || true

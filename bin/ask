@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# ask <question> — one-off question to the local model (needs hub.ai.enable).
+# Reads stdin too: `git diff | ask "review this"`.
+set -eu
+model=${HUB_MODEL:-llama3.2:3b}
+if [ -t 0 ]; then exec ollama run "$model" "$*"; else exec ollama run "$model" "$* $(cat)"; fi

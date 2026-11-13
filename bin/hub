@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# hub — every operation on this machine.
+#   hub            fuzzy menu of all recipes
+#   hub <recipe>   run one (see `hub --list`)
+hub=$(dirname "$(dirname "$(readlink -f "$0")")")
+# the menu shows what each recipe does and its commands in a preview
+export JUST_CHOOSER="fzf --reverse --height=70% --prompt='hub> ' --preview 'just --justfile $hub/justfile --show {}' --preview-window=right,60%,wrap"
+[ $# -gt 0 ] || set -- --choose
+exec just --justfile "$hub/justfile" --working-directory "$hub" "$@"

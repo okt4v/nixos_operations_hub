@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# grab text|qr|color|tex — select a screen region, get its content in the
+# clipboard: recognised text, a QR code's payload, a colour, or (tex) the
+# LaTeX source of a formula.
+set -eu
+
+shot() { grim -g "$(slurp)" "$1"; }
+done_() { wl-copy; notify-send -t 3000 "Copied" "$(wl-paste | head -c 200)"; }
+tmp=$(mktemp --suffix=.png)
+trap 'rm -f "$tmp"' EXIT
+
+case ${1:-} in
+  text) shot "$tmp" && tesseract "$tmp" - -l eng+deu 2>/dev/null | done_ ;;
+  qr) shot "$tmp" && zbarimg -q --raw "$tmp" | done_ ;;
+  color) hyprpicker -a ;;
+  tex)
+    shot "$tmp"
+    notify-send -t 2000 "Reading formula…"
+    # ponytail: pix2tex through uvx; the first run downloads the model (~1 GB).
+    # It is sensitive to scale: if the result is off, zoom the formula in or
+    # out and grab again.
+    uvx --quiet --from 'pix2tex[api]' pix2tex "$tmp" 2>/dev/null | sed 's/^[^:]*: //' | done_
+    ;;
+  *) echo "usage: grab text|qr|color|tex" >&2; exit 1 ;;
+esac

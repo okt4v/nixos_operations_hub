@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# widgets — the wallpaper dashboard (config/eww).
+#   widgets                 pick widgets to switch on/off from a menu
+#   widgets list            all widgets and their state
+#   widgets on|off <name>   switch one
+#   widgets show|hide       the whole dashboard
+#   widgets pos top|bottom  where it sits
+#   widgets watch           (started by sway) open it on empty workspaces only
+# The dashboard is shown on an output only while that output's workspace is
+# empty, and a widget's data is only fetched while it is switched on and
+# visible. It is hidden in the present, meet and game modes.
+set -u
+
+hub=$(dirname "$(dirname "$(readlink -f "$0")")")
+conf=$hub/config/eww/widgets.conf
+state=${XDG_STATE_HOME:-$HOME/.local/state}/hub
+mkdir -p "$state"
+
+names() { sed -nE 's/^(#!)?([a-z]+)$/\2/p' "$conf"; }
+is_on() { grep -qx "$1" "$conf"; }
+apply() { # push the file's state into the running eww
+  local args=()
+  for n in $(names); do if is_on "$n"; then args+=("show_$n=true"); else args+=("show_$n=false"); fi; done
+  eww update "${args[@]}" >/dev/null 2>&1 || true
+}
+set_one() { # set_one <name> on|off
+  names | grep -qx "$1" || { echo "widgets: no widget '$1' (have: $(names | xargs))" >&2; exit 1; }
+  if [ "$2" = on ]; then sed -i -E "s/^#!($1)\$/\1/" "$conf"; else sed -i -E "s/^($1)\$/#!\1/" "$conf"; fi
+  apply
+}
+refresh() { pkill -USR1 -f 'bin/widgets watch' 2>/dev/null || true; }
+
+case ${1:-menu} in
+  list) for n in $(names); do printf '%-4s %s\n' "$(is_on "$n" && echo on || echo off)" "$n"; done ;;
+  on | off) set_one "${2:?usage: widgets on|off <name>}" "$1" ;;
+  show) rm -f "$state/widgets-hidden"; refresh ;;
+  hide) touch "$state/widgets-hidden"; refresh ;;
+  pos)
+    case ${2:-} in top | bottom) echo "$2" >"$state/widgets-pos" ;; *) echo "usage: widgets pos top|bottom" >&2; exit 1 ;; esac
+    touch "$state/widgets-reopen"; refresh
+    ;;
+  menu)
+    pick=$({
+      if [ -e "$state/widgets-hidden" ]; then echo "show dashboard"; else echo "hide dashboard"; fi
+      echo "move to $([ "$(cat "$state/widgets-pos" 2>/dev/null)" = top ] && echo bottom || echo top)"
+      for n in $(names); do printf '%s %s\n' "$(is_on "$n" && echo "[x]" || echo "[ ]")" "$n"; done
+    } | fuzzel --dmenu --prompt 'widgets> ') || exit 0
+    case $pick in
+      "show dashboard") "$0" show ;;
+      "hide dashboard") "$0" hide ;;
+      "move to "*) "$0" pos "${pick#move to }" ;;
+      "[x] "*) set_one "${pick#\[x\] }" off; exec "$0" menu ;;
+      "[ ] "*) set_one "${pick#\[ \] }" on; exec "$0" menu ;;
+    esac
+    ;;
+  watch)
+    declare -A open=()
+    eww daemon >/dev/null 2>&1 || true
+    update() {
+      local mode pos tree out empty
+      mode=$(cat "$state/mode" 2>/dev/null || true)
+      pos=$(cat "$state/widgets-pos" 2>/dev/null || echo bottom)
+      if [ -e "$state/widgets-reopen" ]; then # position changed: close all, reopen below
+        rm -f "$state/widgets-reopen"
+        for out in "${!open[@]}"; do eww close "dash-$out" >/dev/null 2>&1; done
+        open=()
+      fi
+      tree=$(swaymsg -t get_tree)
+      while IFS=$'\t' read -r out empty; do
+        case $mode in present | meet | game) empty=false ;; esac
+        [ ! -e "$state/widgets-hidden" ] || empty=false
+        if [ "$empty" = true ] && [ -z "${open[$out]:-}" ]; then
+          eww open "dash-$pos" --id "dash-$out" --screen "$out" >/dev/null 2>&1 && open[$out]=1
+          apply
+        elif [ "$empty" != true ] && [ -n "${open[$out]:-}" ]; then
+          eww close "dash-$out" >/dev/null 2>&1
+          unset "open[$out]"
+        fi
+      done < <(jq -r '.nodes[] | select(.type == "output" and .name != "__i3") | . as $o
+        | ($o.nodes[] | select(.name == $o.current_workspace)) as $w
+        | [$o.name, (($w.nodes | length) + ($w.floating_nodes | length) == 0)] | @tsv' <<<"$tree")
+    }
+    # one loop reacts to sway events and to USR1 (sent by show/hide/pos)
+    trap 'update' USR1
+    update
+    while true; do
+      while read -r _; do update; done < <(swaymsg -t subscribe -m '["window","workspace","output"]')
+    done
+    ;;
+  *) sed -n '2,8p' "$0" | sed 's/^# \?//' >&2; exit 1 ;;
+esac

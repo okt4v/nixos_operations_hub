@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# keys — one searchable cheat sheet: sway, tmux, keyboard layer, nvim, hub.
+# Everything is read from the live config files, so it is never out of date.
+hub=$(dirname "$(dirname "$(readlink -f "$0")")")
+head() { printf '\n\033[1;36m── %s ──\033[0m\n' "$1"; }
+row() { awk -F'\t' '{ printf "  \033[32m%-32s\033[0m\033[2m%s\033[0m\n", $1, $2 }'; }
+
+{
+  python3 "$hub/config/sway/scripts/keybinds-viewer.py"
+
+  head "TMUX (prefix Ctrl-Space; -n = no prefix)"
+  sed -nE 's/^\s*bind(-key)?\s+((-[nrT]\s+(copy-mode-vi\s+)?)*)(\S+)\s+(.*)/\2\5\t\6/p' "$hub/config/tmux/keybindings.conf" | row
+
+  head "KEYBOARD LAYER (kanata)"
+  sed -nE 's/^;; ?(.*)/  \1/p' "$hub/config/kanata/main.kbd"
+
+  head "NVIM (leader = Space)"
+  grep -rhE 'desc *= *"' "$hub/config/nvim/lua" |
+    sed -nE -e 's/^\s*(vim\.keymap\.set|map)\(\s*("[^"]*"|\{[^}]*\}),\s*"([^"]+)".*desc *= *"([^"]+)".*/\3\t\4/p' \
+      -e 's/^\s*\{\s*"([^"]+)".*desc *= *"([^"]+)".*/\1\t\2/p' | sort -u | row
+
+  head "HUB (run: hub <recipe>)"
+  just --justfile "$hub/justfile" --list --list-heading '' | sed -E 's/^\s+(\S+[^#]*)# (.*)/\1\t\2/' | row
+} | fzf --ansi --no-sort --layout=reverse --prompt='keys> ' --no-info --bind='esc:abort,enter:abort'

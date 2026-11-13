@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# theme [dark|light] — switch the palette everywhere; no argument toggles.
+set -eu
+
+dir=${XDG_CONFIG_HOME:-$HOME/.config}/pal
+cur=$(readlink "$dir/current")
+new=${1:-$([ "$cur" = dark ] && echo light || echo dark)}
+[ -d "$dir/$new" ] || { echo "theme: no palette '$new' in $dir" >&2; exit 1; }
+
+ln -sfn "$new" "$dir/current"
+
+# Every reload is best-effort: the app may simply not be running.
+swaymsg reload >/dev/null 2>&1 || true
+pkill -USR2 waybar || true
+pkill -USR1 kitty || true
+tmux source-file "${XDG_CONFIG_HOME:-$HOME/.config}/tmux/tmux.conf" 2>/dev/null || true
+makoctl reload 2>/dev/null || true
+eww reload 2>/dev/null || true
+
+if [ "$new" = light ]; then gtk=adw-gtk3 scheme=prefer-light; else gtk=adw-gtk3-dark scheme=prefer-dark; fi
+gsettings set org.gnome.desktop.interface gtk-theme "$gtk" 2>/dev/null || true
+gsettings set org.gnome.desktop.interface color-scheme "$scheme" 2>/dev/null || true
+
+for sock in "${XDG_RUNTIME_DIR:-/run/user/$UID}"/nvim.*.0; do
+  [ -S "$sock" ] && nvim --server "$sock" --remote-send "<Cmd>lua require('config.pal')()<CR>" >/dev/null 2>&1 || true
+done
+
+echo "$new"

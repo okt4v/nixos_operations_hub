@@ -1,0 +1,37 @@
+;; Keyboard layer for the German ISO layout. Keys are named by their
+;; physical (US) position; outputs are what the German layout turns them into.
+;;
+;;   Caps        tap = Esc, hold = Ctrl
+;;   Space       tap = Space, hold = layer below (only while another key is pressed)
+;;
+;;   layer:  q |   w ~   e @                 u Home  i PgDn  o PgUp  p End
+;;           a {   s [   d ]   f }   g \     h ←     j ↓     k ↑     l →
+;;                                           n Bksp  m Del
+;;
+;; Timing knobs: raise the 200s if holds trigger by accident while typing.
+
+(defsrc
+  q    w    e    u    i    o    p
+  caps a    s    d    f    g    h    j    k    l
+  n    m
+  spc
+)
+
+(defalias
+  cap (tap-hold-press 200 200 esc lctl)
+  spc (tap-hold-release 200 200 spc (layer-while-held nav))
+)
+
+(deflayer base
+  _    _    _    _    _    _    _
+  @cap _    _    _    _    _    _    _    _    _
+  _    _
+  @spc
+)
+
+(deflayer nav
+  RA-nubs RA-]  RA-q  home  pgdn  pgup  end
+  _    RA-7 RA-8 RA-9 RA-0 RA-min left down up   rght
+  bspc del
+  _
+)

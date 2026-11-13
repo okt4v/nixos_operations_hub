@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# svc up|down — services (Postgres, Redis, ...) for the project in the
+# current directory, declared in its devenv.nix, data kept in .devenv/.
+set -eu
+
+if [ ! -f devenv.nix ]; then
+  cat >devenv.nix <<'NIX'
+# Services for this project. Enable what you need, then `hub svc up`.
+{ ... }:
+{
+  # services.postgres = {
+  #   enable = true;
+  #   initialDatabases = [ { name = "app"; } ];
+  #   listen_addresses = "127.0.0.1";
+  # };
+  # services.redis.enable = true;
+}
+NIX
+  echo "created devenv.nix: enable the services you need, then run this again"
+  exit 0
+fi
+
+case ${1:-up} in
+  up) exec devenv up -d ;;
+  down) exec devenv processes down ;;
+  *) echo "usage: svc up|down" >&2; exit 1 ;;
+esac

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# runs once in the new project, then is removed
+uv init --bare --name "$1" >/dev/null
+uv add polars duckdb numba jupyterlab backtesting matplotlib || echo "offline? run the 'uv add' from .hub-init later"
+mkdir -p notebooks

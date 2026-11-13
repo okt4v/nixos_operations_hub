@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# fig <name> — draw a figure for the LaTeX document in the current directory.
+# Opens figures/<name>.svg in Inkscape; when you close it, the PDF is
+# exported and the \includegraphics line is in the clipboard.
+set -eu
+
+name=${1:?usage: fig <name>}
+mkdir -p figures
+svg=figures/$name.svg
+[ -f "$svg" ] || printf '<svg xmlns="http://www.w3.org/2000/svg" width="120mm" height="80mm" viewBox="0 0 120 80"></svg>\n' >"$svg"
+inkscape "$svg"
+inkscape "$svg" --export-type=pdf --export-filename="figures/$name.pdf" 2>/dev/null
+printf '\\includegraphics[width=0.8\\linewidth]{figures/%s}' "$name" | wl-copy

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# untex <file.pdf> — turn a compiled document or scan back into LaTeX source.
+# marker reads layout, text and formulas into Markdown with LaTeX math;
+# pandoc turns that into a .tex next to the input.
+# ponytail: runs marker through uvx; the first run downloads its models
+# (several GB, ~3 minutes), after that roughly 10 s per page on CPU. Text and
+# formulas come back well, the original preamble/macros do not.
+set -eu
+
+# marker drives its layout model through llama.cpp's server
+LLAMA_CPP_BINARY=${LLAMA_CPP_BINARY:-$(command -v llama-server)}
+export LLAMA_CPP_BINARY
+
+in=$(readlink -f "${1:?usage: untex <file.pdf>}")
+out=${in%.*}.untex
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+uvx --from marker-pdf marker_single "$in" --output_dir "$tmp" --output_format markdown
+md=$(find "$tmp" -name '*.md' | head -1)
+[ -n "$md" ] || { echo "untex: marker produced no output" >&2; exit 1; }
+mkdir -p "$out"
+cp -r "$(dirname "$md")"/. "$out"/
+pandoc "$md" -f markdown+tex_math_dollars -s -o "$out/$(basename "${in%.*}").tex"
+echo "$out"

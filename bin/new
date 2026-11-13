@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# new [template] [name] — create ~/dev/active/<name> from templates/<template>.
+# `new tex` instead picks one of your LaTeX templates and creates it in ~/doc.
+# Missing arguments are asked for.
+set -eu
+
+hub=$(dirname "$(dirname "$(readlink -f "$0")")")
+tpl=${1:-}
+name=${2:-}
+
+[ -n "$tpl" ] || tpl=$(ls "$hub/templates" | fzf --prompt='template> ' --height=40%)
+[ -d "$hub/templates/$tpl" ] || { echo "new: no template '$tpl' (have: $(echo "$hub"/templates/*/ | xargs -n1 basename | xargs))" >&2; exit 1; }
+src=$hub/templates/$tpl
+root=$HOME/dev/active
+
+# LaTeX documents come from your own templates: every folder in ~/tpl/latex
+# is one (add a folder = add a template). They land in ~/doc, not ~/dev.
+if [ "$tpl" = tex ]; then
+  lib=$HOME/tpl/latex
+  [ -n "$(ls -A "$lib" 2>/dev/null)" ] || { mkdir -p "$lib" && cp -r "$hub/templates/tex" "$lib/article"; }
+  kind=$(find "$lib" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | fzf --prompt='latex template> ' --height=40% --select-1)
+  src=$lib/$kind
+  root=$HOME/doc/$(printf '%s\n' school work personal | fzf --prompt='where> ' --height=40%)
+fi
+
+[ -n "$name" ] || { printf 'project name> '; read -r name; }
+case $name in '' | */* | .*) echo "new: invalid name '$name'" >&2; exit 1 ;; esac
+
+dest=$root/$name
+[ ! -e "$dest" ] || { echo "new: $dest already exists" >&2; exit 1; }
+
+mkdir -p "$(dirname "$dest")"
+cp -r "$src" "$dest"
+cd "$dest"
+if [ -x .hub-init ]; then ./.hub-init "$name"; rm .hub-init; fi
+git init -q
+git add -A # flakes only see tracked files
+[ ! -f .envrc ] || direnv allow
+echo "$dest"

@@ -1,0 +1,123 @@
+/* Colours: bg fg sel mute acc ok warn crit, from the active palette. */
+@import url("file:///home/oktav/.config/pal/current/bar.css");
+
+* {
+    font-family: "Inter", sans-serif;
+    font-size: 12px;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    margin: 0;
+    color: @fg;
+    min-height: 0;
+}
+
+window#waybar {
+    background-color: @bg;
+    border-bottom: 1px solid @sel;
+}
+
+#workspaces {
+    margin: 0 2px;
+}
+
+#workspaces button {
+    padding: 0 8px;
+    color: alpha(@fg, 0.35);
+    background: transparent;
+}
+
+#workspaces button.focused {
+    color: @fg;
+    background: alpha(@fg, 0.12);
+    border-radius: 4px;
+}
+
+#workspaces button.urgent {
+    color: @crit;
+}
+
+#workspaces button.empty {
+    color: alpha(@fg, 0.12);
+}
+
+#mode {
+    color: @warn;
+    font-weight: 600;
+    padding: 0 8px;
+}
+
+/* current hub mode (bin/mode); one colour per kind of mode */
+#custom-mode {
+    color: @acc;
+    font-weight: 600;
+    padding: 0 8px;
+}
+#custom-mode.none { padding: 0; }
+#custom-mode.game, #custom-mode.battery { color: @warn; }
+#custom-mode.hack { color: @crit; }
+
+#custom-vpn.on { color: @ok; padding: 0 6px; }
+#custom-vpn.off { padding: 0; }
+#custom-dnd { color: @warn; padding: 0 6px; }
+#privacy { padding: 0 4px; }
+#privacy-item { color: @crit; padding: 0 3px; }
+tooltip { background: @bg; border: 1px solid @sel; border-radius: 8px; }
+tooltip label { color: @fg; padding: 4px; }
+
+#custom-health { color: @crit; font-weight: 600; padding: 0 6px; }
+#custom-health.ok { padding: 0; }
+#custom-focus { color: @warn; font-weight: 600; padding: 0 8px; }
+#custom-focus.off { padding: 0; }
+#custom-agenda, #custom-mkt { color: alpha(@fg, 0.6); padding: 0 8px; }
+
+#custom-launch1,
+#custom-launch2,
+#custom-launch3,
+#custom-launch4,
+#custom-launch5 {
+    color: alpha(@fg, 0.6);
+    padding: 0 6px;
+}
+
+#custom-launch1:hover,
+#custom-launch2:hover,
+#custom-launch3:hover,
+#custom-launch4:hover,
+#custom-launch5:hover {
+    color: @fg;
+}
+
+#clock {
+    color: @fg;
+    font-weight: 500;
+    padding: 0 8px;
+}
+
+#cpu, #memory, #temperature,
+#pulseaudio, #bluetooth, #network,
+#battery, #custom-power-profile,
+#custom-dwt, #custom-hosts, #idle_inhibitor {
+    color: alpha(@fg, 0.75);
+    font-weight: normal;
+    padding: 0 6px;
+}
+
+#cpu.warning, #memory.warning, #temperature.warning { color: @warn; }
+#cpu.critical, #memory.critical, #temperature.critical { color: @crit; }
+
+#battery.warning  { color: @warn; }
+#battery.critical { color: @crit; }
+
+#network.disconnected { color: @crit; }
+#network.linked       { color: @warn; }
+
+#bluetooth.off,
+#bluetooth.disabled { color: alpha(@fg, 0.25); }
+#bluetooth.connected { color: @acc; }
+
+#idle_inhibitor.activated { color: @warn; }
+
+#tray { padding: 0 6px; }
+#tray > .passive        { -gtk-icon-effect: dim; }
+#tray > .needs-attention { -gtk-icon-effect: highlight; }

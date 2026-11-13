@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# focus [minutes] [subject] — a focus block: notifications held, distracting
+# sites blocked, time logged under the subject.
+#   focus 25 math     start (default 25 minutes, subject "focus")
+#   focus stop        end early
+#   focus --bar       remaining minutes as JSON for waybar
+set -eu
+
+state=${XDG_RUNTIME_DIR:-/tmp}/hub-focus
+left() { [ -f "$state" ] && echo $((($(cat "$state") - $(date +%s) + 59) / 60)) || echo 0; }
+
+case ${1:-25} in
+  --bar)
+    m=$(left)
+    if [ "$m" -gt 0 ]; then printf '{"text":"focus %sm","class":"on"}\n' "$m"; else printf '{"text":"","class":"off"}\n'; fi
+    ;;
+  --text)
+    m=$(left)
+    if [ "$m" -gt 0 ]; then echo "focus  ${m}m left"; else echo "no focus block"; fi
+    ;;
+  stop)
+    rm -f "$state"
+    systemctl --user stop hub-focus.timer 2>/dev/null || true
+    sudo systemctl stop focus-block 2>/dev/null || true
+    makoctl mode -r dnd >/dev/null 2>&1 || true
+    timew stop >/dev/null 2>&1 || true
+    notify-send -t 5000 "Focus block over" 2>/dev/null || true
+    pkill -RTMIN+9 waybar 2>/dev/null || true
+    ;;
+  *)
+    min=${1:-25}
+    subject=${2:-focus}
+    case $min in '' | *[!0-9]*) echo "usage: focus [minutes] [subject] | stop" >&2; exit 1 ;; esac
+    echo $(($(date +%s) + min * 60)) >"$state"
+    sudo systemctl start focus-block 2>/dev/null || true
+    makoctl mode -a dnd >/dev/null 2>&1 || true
+    timew start focus "$subject" >/dev/null 2>&1 || true
+    systemctl --user stop hub-focus.timer 2>/dev/null || true
+    systemd-run --user --quiet --unit=hub-focus --on-active="${min}m" "$(readlink -f "$0")" stop
+    pkill -RTMIN+9 waybar 2>/dev/null || true
+    ;;
+esac

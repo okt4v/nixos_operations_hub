@@ -1,0 +1,17 @@
+{
+  "fraction": { "prefix": "ff", "body": "\\frac{$1}{$2}$0" },
+  "inline math": { "prefix": "mk", "body": "\\($1\\)$0" },
+  "display math": { "prefix": "dm", "body": ["\\[", "\t$1", "\\]", "$0"] },
+  "sum": { "prefix": "sum", "body": "\\sum_{${1:i=1}}^{${2:n}} $0" },
+  "integral": { "prefix": "int", "body": "\\int_{${1:a}}^{${2:b}} $3 \\,d${4:x}$0" },
+  "limit": { "prefix": "lim", "body": "\\lim_{${1:n} \\to ${2:\\infty}} $0" },
+  "square root": { "prefix": "sq", "body": "\\sqrt{$1}$0" },
+  "vector": { "prefix": "vec", "body": "\\vec{$1}$0" },
+  "environment": { "prefix": "beg", "body": ["\\begin{${1:env}}", "\t$0", "\\end{$1}"] },
+  "align": { "prefix": "ali", "body": ["\\begin{align*}", "\t$1 &= $2 \\\\\\\\", "\t$0", "\\end{align*}"] },
+  "matrix": { "prefix": "mat", "body": ["\\begin{pmatrix}", "\t$1 & $2 \\\\\\\\", "\t$3 & $4", "\\end{pmatrix}$0"] },
+  "cases": { "prefix": "case", "body": ["\\begin{cases}", "\t$1 & \\text{if } $2 \\\\\\\\", "\t$3 & \\text{otherwise}", "\\end{cases}$0"] },
+  "figure": { "prefix": "fig", "body": ["\\begin{figure}[ht]", "\t\\centering", "\t\\includegraphics[width=0.8\\linewidth]{figures/$1}", "\t\\caption{$2}", "\t\\label{fig:$1}", "\\end{figure}$0"] },
+  "section": { "prefix": "sec", "body": ["\\section{$1}", "$0"] },
+  "text in math": { "prefix": "tt", "body": "\\text{$1}$0" }
+}
