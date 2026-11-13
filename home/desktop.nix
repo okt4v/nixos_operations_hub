@@ -30,7 +30,7 @@ in
       include=${pal}/fuzzel.ini
 
       [main]
-      font=Inter:size=13
+      font=Share Tech Mono:size=13
       terminal=kitty
       lines=12
       width=42
@@ -43,7 +43,7 @@ in
 
       [border]
       width=1
-      radius=10
+      radius=0
     '';
   };
 

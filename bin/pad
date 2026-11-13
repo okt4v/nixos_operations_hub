@@ -6,6 +6,7 @@ set -eu
 case ${1:-} in
   term) match='app_id="pad-term"' cmd=(kitty --app-id pad-term) ;;
   note) match='app_id="pad-note"' cmd=(kitty --app-id pad-note nvim "$HOME/doc/notes/inbox.md") ;;
+  mail) match='app_id="pad-mail"' cmd=(kitty --app-id pad-mail email) ;;
   agenda) match='app_id="pad-agenda"' cmd=(kitty --app-id pad-agenda ikhal) ;;
   calc) match='app_id="qalculate-gtk"' cmd=(qalculate-gtk) ;;
   pass) match='app_id="org.keepassxc.KeePassXC"' cmd=(keepassxc) ;;

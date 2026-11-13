@@ -14,6 +14,8 @@ only names the bindings you need daily.
 | `pj` | Jump to a project (`Super+P`). |
 | `mode` | Switch context (`Super+O`). |
 
+| `hub feature` | Switch features on and off. |
+
 If something looks wrong: `hub status` (overview), `hub health` (problems), `hub doctor`
 (one-time setup steps still open).
 
@@ -31,6 +33,38 @@ The repo lives at `~/tec/nix`.
 - `hub gc` deletes old generations (keeps 5). `hub search <words>` searches nixpkgs. `, <program>` runs a program once without installing it.
 - `hub vm [host]` boots a host's config in a throwaway VM window (password `test`). `Super+Shift+Escape` gives your shortcuts back to the host.
 
+## Features
+
+Everything optional is a flag in `hosts/<host>/features.nix`, one per line.
+
+- `hub feature` opens a menu: Tab marks, Enter toggles, then it offers to run `hub switch`.
+- `hub feature list` shows every feature, its state and what it is.
+- `hub feature on|off <name>` sets one; apply with `hub switch`.
+
+| Feature | What you get |
+|---|---|
+| `keyboard` | Caps = Esc/Ctrl and the Space layer |
+| `dev` | Docker, direnv, compilers, editor tooling |
+| `lab`, `hack` | Lab VMs; the `hack` boot profile |
+| `play` | Steam and games |
+| `meetings`, `minutes` | Noise-suppressed mic and OBS; call recording with transcript |
+| `snapshots`, `power` | `/home` snapshots; charge cap and power profiles |
+| `phone` | KDE Connect |
+| `mail`, `calendar` | Terminal mail; iCloud calendar. Both need the secret `icloud` |
+| `browser` | Zen with extensions and privacy settings from the repo |
+| `ai` | Local LLM |
+| `backupExternal`, `backupHomelab`, `backupCloud` | The three backup targets |
+| `secureBoot` | Secure Boot and TPM unlock (read INSTALL.md section 5 first) |
+
+A feature that needs a secret cannot be built before `hub sec` has created the secrets file
+and the secret is in it.
+
+## Look
+
+Black and amber, square corners, one monospace font. The colours are eight values in
+`config/palette/dark` (and `light`): edit the file, run `theme apply`, and every app follows.
+A new file in that folder is a new palette: `theme <name>`. `theme list` shows them.
+
 ## Desktop
 
 | Key | Action |
@@ -44,12 +78,12 @@ The repo lives at `~/tec/nix`.
 | `Super+F` / `Super+Shift+F` | Fullscreen / floating |
 | `Super+R` / `Super+Shift+R` | Resize / move mode (`Esc` leaves) |
 | `Super+C` | Clipboard history |
-| `Super+T` | Dark/light theme, everywhere, instantly |
+| `Super+T` | Toggle the dark and light palette, everywhere, instantly |
 | `Alt+Ctrl+L` | Lock |
 
 **Scratchpads** toggle a floating window and start the app on first use:
 `` Super+` `` terminal, `Super+Ctrl+N` note, `Super+Ctrl+C` calculator, `Super+Ctrl+A` agenda,
-`Super+Ctrl+P` KeePassXC, `Super+Ctrl+M` music.
+`Super+Ctrl+P` KeePassXC, `Super+Ctrl+M` music, `Super+Ctrl+E` mail.
 
 **Screenshots:** `Print` region → annotate → clipboard; `Super+Print` region → file;
 `Shift+Print` whole screen → file. Files land in `~/med/img/shot`.
@@ -66,7 +100,7 @@ The repo lives at `~/tec/nix`.
 as a profile that is applied automatically when those monitors are connected.
 
 **Wallpaper widgets** (`Super+Shift+W` or `widgets`): agenda, tasks, focus, projects, system, net,
-markets, weather, music, inbox, month. They show only on empty workspaces.
+markets, weather, music, inbox, month, services. They show only on empty workspaces.
 `widgets on|off <name>`, `widgets show|hide`, `widgets pos top|bottom`.
 Location for the weather: `config/eww/weather.conf`.
 
@@ -97,6 +131,7 @@ A mode is one file, `config/mode/<name>.sh`, with an `up()` and a `down()` funct
   Libraries belong in the project's `flake.nix`, never in the system.
 - `pj [query]` opens or resumes the project's tmux session (nvim plus a shell) and starts time tracking.
 - `pj -s [plan|wip|paused|done]` sets the status of the project you are in; `pj -l` lists all. Done projects sort last.
+  `done` moves the project to `~/dev/finished`; any other status on a finished project moves it back to `~/dev/active`.
 - `hub svc up|down` runs the project's services (Postgres, Redis, …) declared in its `devenv.nix`.
 - `hub agent <name> [command]` runs a coding agent in its own git worktree, jailed: it can write only there and cannot see your home, SSH keys, vault or secrets.
 - `hub report` shows the week's tracked time by mode and project.
@@ -114,7 +149,16 @@ path does not exist, `mkcd`, `x <archive>` extracts. Aliases: `g` git, `lg` lazy
 - `Super+Ctrl+D` opens today's daily note; `note find` searches all notes. `~/doc/notes` is also an Obsidian vault.
 - `focus [minutes] [subject]` starts a focus block: notifications held, distracting sites blocked,
   time logged. `focus stop` ends it early. The blocked sites are `hub.focus.sites` in the host file.
-- Calendar (after setup): `Super+Ctrl+A`; the next event shows in the bar.
+- Calendar (feature `calendar`): `Super+Ctrl+A`; the next event shows in the bar.
+- **Mail** (feature `mail`): `Super+Ctrl+E` or `email` opens aerc; the bar shows the unread count.
+  Accounts are in `config/aerc/accounts.conf`.
+- **Flashcards:** copy the answer (a selection, or a formula with `grab tex`), press `Super+Ctrl+F`
+  and type the question. Cards collect in `~/doc/school/cards.tsv`; in Anki use File → Import.
+- **Meeting notes** (feature `minutes`): `Super+F10` starts recording your microphone and what you
+  hear; press it again to stop. The transcript lands in `~/doc/notes/meetings/`, with a summary on
+  top when the feature `ai` is on. The first run downloads the speech model (about 470 MB).
+- **Phone** (feature `phone`): pair from the tray icon. Notifications, clipboard and files then
+  move between phone and laptop. It is stopped on untrusted wifi.
 
 ## LaTeX
 
@@ -132,7 +176,9 @@ path does not exist, `mkcd`, `x <archive>` extracts. Aliases: `g` git, `lg` lazy
 ## Safety
 
 - `/home` is snapshotted automatically. Old versions of a file are under `/home/.snapshots/<n>/snapshot/`.
-- `hub bak` runs every enabled backup now. Backups are off until you enable `hub.backup.*` in the host file.
+- `hub bak` runs every enabled backup now. Backups are off until you switch on `backupExternal`,
+  `backupHomelab` or `backupCloud`. The cloud target reads its repository and credentials from the
+  secrets `restic-cloud-repo` and `restic-cloud-env` (see `modules/backup.nix`).
 - `hub drill` restores a random file from a snapshot and from each backup and compares it.
 - `hub sec` edits the encrypted secrets.
 - `hub charge` charges to 100% once; otherwise the battery stops at 80%.
@@ -141,6 +187,9 @@ path does not exist, `mkcd`, `x <archive>` extracts. Aliases: `g` git, `lg` lazy
 
 - `hub lab up|down|reset <name>`, `hub lab list`: disposable VMs from base images in `~/tec/vm/<name>.qcow2`,
   on an isolated network that cannot reach the LAN. `reset` returns one to its base state.
+- `hub probe` shows which homelab services are up. List them in `config/homelab/services`
+  (a name and a URL per line). One that is down shows in the bar's health indicator and in the
+  `services` widget.
 - `hp` picks a machine from the tailnet or SSH config and opens SSH with a resumed tmux session.
 - `hub deploy <host>` rebuilds a remote host from here; `hub install <host> <ip>` installs one. `hub iso` builds the installer.
 - `hub net` shows wifi, address, VPN and tailnet state.

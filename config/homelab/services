@@ -1,0 +1,5 @@
+# Services `probe` watches: a name and a URL per line. A service is up when
+# the URL answers with a status below 500. Anything down shows in the bar's
+# health indicator and in the `services` widget.
+# nas       http://nas:5000
+# grafana   https://grafana.example.com

@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# minutes — meeting notes. Run once to start recording your microphone and
+# what you hear; run again to stop. The recording is transcribed on this
+# machine (whisper) into ~/doc/notes/meetings/<date>.md; with the local LLM
+# on (feature `ai`) a summary is put on top. Needs the feature `minutes`.
+#   MINUTES_MODEL=small|base|medium   accuracy vs speed (default small);
+#                                     the model is downloaded on first use
+set -eu
+command -v whisper-cli >/dev/null || { echo "minutes: the feature is off — hub feature on minutes, then hub switch" >&2; exit 1; }
+
+run=${XDG_RUNTIME_DIR:-/tmp}/minutes
+out=$HOME/doc/notes/meetings
+say() { notify-send -t 4000 "minutes" "$1" 2>/dev/null || true; echo "$1"; }
+
+if [ ! -f "$run/pids" ]; then
+  mkdir -p "$run"
+  pw-record "$run/mic.wav" &
+  echo $! >"$run/pids"
+  # the monitor of the default output: the other side of the call
+  pw-record -P '{ stream.capture.sink = true }' "$run/sys.wav" &
+  echo $! >>"$run/pids"
+  say "recording — run minutes again to stop"
+  exit 0
+fi
+
+xargs kill -INT <"$run/pids" 2>/dev/null || true
+rm -f "$run/pids"
+sleep 1
+say "transcribing…"
+
+model=${XDG_DATA_HOME:-$HOME/.local/share}/whisper/ggml-${MINUTES_MODEL:-small}.bin
+if [ ! -f "$model" ]; then
+  mkdir -p "$(dirname "$model")"
+  curl -fL --progress-bar -o "$model.part" "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/$(basename "$model")"
+  mv "$model.part" "$model"
+fi
+
+# whisper wants 16 kHz mono; mix both sides into one track
+ffmpeg -loglevel error -y -i "$run/mic.wav" -i "$run/sys.wav" -filter_complex amix=inputs=2:normalize=0 -ar 16000 -ac 1 "$run/mix.wav"
+whisper-cli -m "$model" -l auto -np -otxt -of "$run/mix" "$run/mix.wav" >/dev/null 2>&1
+
+mkdir -p "$out"
+note=$out/$(date +%F-%H%M).md
+{
+  echo "# Meeting $(date '+%F %H:%M')"
+  if command -v ollama >/dev/null && ollama list >/dev/null 2>&1; then
+    printf '\n## Summary\n\n'
+    ask "Summarise this meeting transcript: decisions, action items with owners, open questions. Be brief." <"$run/mix.txt" || true
+  fi
+  printf '\n## Transcript\n\n'
+  cat "$run/mix.txt"
+} >"$note"
+rm -rf "$run"
+say "written: $note"

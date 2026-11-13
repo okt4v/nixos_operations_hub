@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# email [--bar] — mail. Needs the feature `mail` (hub feature on mail).
+#   email         open aerc
+#   email --bar   unread count of the first account's inbox, for waybar
+set -eu
+command -v aerc >/dev/null || { [ "${1:-}" = --bar ] || echo "email: the feature is off — hub feature on mail, then hub switch" >&2; exit 0; }
+[ "${1:-}" = --bar ] || exec aerc
+
+# --bar: ask the server directly; prints nothing when there is no unread mail
+conf=$(dirname "$(dirname "$(readlink -f "$0")")")/config/aerc/accounts.conf
+url=$(sed -nE 's/^source *= *imaps:\/\/(.*)$/\1/p' "$conf" | head -1) # user@host:port
+user=${url%@*} host=${url##*@}
+user=${user//%40/@}
+[ -r /run/secrets/icloud ] || exit 0
+n=$(curl -s --max-time 8 --user "$user:$(cat /run/secrets/icloud)" "imaps://$host/" -X 'STATUS INBOX (UNSEEN)' | sed -nE 's/.*UNSEEN ([0-9]+).*/\1/p')
+[ "${n:-0}" -eq 0 ] || echo "mail $n"

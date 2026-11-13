@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# feature — switch features of this host on and off.
+#   feature                 pick from a menu (Tab marks several), then apply
+#   feature list            every feature, its state and what it is
+#   feature on|off <name>   set one
+# The flags live in hosts/<host>/features.nix. Changing one edits that file;
+# `hub switch` applies it (the menu offers to run it).
+set -eu
+
+hub=$(dirname "$(dirname "$(readlink -f "$0")")")
+file=$hub/hosts/$(hostname)/features.nix
+[ -f "$file" ] || { echo "feature: $file does not exist" >&2; exit 1; }
+
+list() { sed -nE 's/^  ([A-Za-z]+) = (true|false); # (.*)$/\2\t\1\t\3/p' "$file" | sed 's/^true/on/; s/^false/off/'; }
+show() { awk -F'\t' '{ printf "%-4s %-16s %s\n", $1, $2, $3 }'; }
+set_one() { # set_one <name> true|false
+  grep -qE "^  $1 = (true|false);" "$file" || { echo "feature: no feature '$1' (see: feature list)" >&2; exit 1; }
+  sed -i -E "s/^  $1 = (true|false);/  $1 = $2;/" "$file"
+  # a feature that needs a secret cannot be built before the secrets file exists
+  if [ "$2" = true ] && grep -qE "^  $1 = .*needs secret" "$file" && [ ! -f "$hub/secrets/secrets.yaml" ]; then
+    echo "note: $1 needs a secret; run 'hub sec' and add it before 'hub switch'" >&2
+  fi
+}
+
+case ${1:-menu} in
+  list) list | show ;;
+  on) set_one "${2:?usage: feature on|off <name>}" true; echo "$2: on — apply with: hub switch" ;;
+  off) set_one "${2:?usage: feature on|off <name>}" false; echo "$2: off — apply with: hub switch" ;;
+  menu)
+    picks=$(list | show | fzf --multi --reverse --height=60% --prompt='toggle> ' --header='Tab marks, Enter toggles') || exit 0
+    while read -r state name _; do
+      set_one "$name" "$([ "$state" = on ] && echo false || echo true)"
+      echo "$name: $([ "$state" = on ] && echo off || echo on)"
+    done <<<"$picks"
+    printf 'apply now with hub switch? [y/N] '
+    read -r yes
+    [ "$yes" != y ] || exec "$hub/bin/hub" switch
+    ;;
+  *) echo "usage: feature [list | on <name> | off <name>]" >&2; exit 1 ;;
+esac

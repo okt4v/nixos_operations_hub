@@ -19,6 +19,7 @@ let
       gawk
       mullvad
       systemd
+      procps
     ];
     text = ''
       # net-trust [untrusted|auto] — apply the policy for the current network
@@ -35,6 +36,7 @@ let
         mullvad lockdown-mode set on || true
         mullvad connect || true
         systemctl stop avahi-daemon.socket avahi-daemon.service || true
+        pkill -x kdeconnectd || true # phone link: no pairing offers to strangers
       fi
       echo "$state" > /run/net-trust
     '';

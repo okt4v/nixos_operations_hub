@@ -25,6 +25,7 @@
         "custom/dnd",
         "custom/vpn",
         "custom/health",
+        "custom/mail",
         "custom/hosts",
         "custom/dwt",
         "idle_inhibitor",
@@ -107,6 +108,12 @@
         "interval": 300,
         "on-click": "kitty --hold mkt",
         "tooltip": false
+    },
+    "custom/mail": {
+        "exec": "email --bar",
+        "interval": 300,
+        "on-click": "pad mail",
+        "tooltip-format": "unread mail"
     },
     "custom/hosts": {
         "exec": "hp --bar",

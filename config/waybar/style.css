@@ -2,7 +2,7 @@
 @import url("file:///home/oktav/.config/pal/current/bar.css");
 
 * {
-    font-family: "Inter", sans-serif;
+    font-family: "Share Tech Mono", monospace;
     font-size: 12px;
     border: none;
     border-radius: 0;
@@ -29,8 +29,8 @@ window#waybar {
 
 #workspaces button.focused {
     color: @fg;
-    background: alpha(@fg, 0.12);
-    border-radius: 4px;
+    color: @bg;
+    background: @acc;
 }
 
 #workspaces button.urgent {
@@ -62,7 +62,7 @@ window#waybar {
 #custom-dnd { color: @warn; padding: 0 6px; }
 #privacy { padding: 0 4px; }
 #privacy-item { color: @crit; padding: 0 3px; }
-tooltip { background: @bg; border: 1px solid @sel; border-radius: 8px; }
+tooltip { background: @bg; border: 1px solid @sel; border-radius: 0; }
 tooltip label { color: @fg; padding: 4px; }
 
 #custom-health { color: @crit; font-weight: 600; padding: 0 6px; }
@@ -97,7 +97,7 @@ tooltip label { color: @fg; padding: 4px; }
 #cpu, #memory, #temperature,
 #pulseaudio, #bluetooth, #network,
 #battery, #custom-power-profile,
-#custom-dwt, #custom-hosts, #idle_inhibitor {
+#custom-dwt, #custom-hosts, #custom-mail, #idle_inhibitor {
     color: alpha(@fg, 0.75);
     font-weight: normal;
     padding: 0 6px;

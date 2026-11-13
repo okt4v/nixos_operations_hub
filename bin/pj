@@ -2,7 +2,8 @@
 # pj — project jumper with a status per project.
 #   pj [query]       fuzzy-pick a project in ~/dev/*/* (most used first, done
 #                    last) and open or resume its tmux session: nvim + a shell
-#   pj -s [status]   set the status of the project you are in (asks if omitted)
+#   pj -s [status]   set the status of the project you are in (asks if omitted);
+#                    done moves it to ~/dev/finished, reopening moves it back
 #   pj -l            list all projects with their status
 # Statuses: plan, wip, paused, done. A project without one shows "-".
 # They are kept in ~/.local/state/hub/projects (path<TAB>status), outside the
@@ -40,9 +41,23 @@ case ${1:-} in
     # shellcheck disable=SC2086 # the list is meant to split into words
     new=${2:-$(printf '%s\n' $statuses | fzf --prompt="status of $proj> " --height=30% --reverse)}
     case " $statuses " in *" $new "*) ;; *) echo "pj: status must be one of: $statuses" >&2; exit 1 ;; esac
-    { grep -vF "$proj"$'\t' "$db" || true; printf '%s\t%s\n' "$proj" "$new"; } >"$db.tmp"
+    # done moves the project to ~/dev/finished; any other status on a
+    # finished project brings it back to ~/dev/active
+    to=$proj
+    case $new:${proj%%/*} in
+      done:finished) ;;
+      done:*) to=finished/${proj#*/} ;;
+      *:finished) to=active/${proj#*/} ;;
+    esac
+    if [ "$to" != "$proj" ]; then
+      [ ! -e "$root/$to" ] || { echo "pj: $root/$to already exists; status not changed" >&2; exit 1; }
+      mkdir -p "$root/${to%%/*}"
+      mv "$root/$proj" "$root/$to"
+    fi
+    { grep -vF "$proj"$'\t' "$db" || true; printf '%s\t%s\n' "$to" "$new"; } >"$db.tmp"
     mv "$db.tmp" "$db"
     echo "$proj: $new"
+    [ "$to" = "$proj" ] || echo "moved to ~/dev/$to (cd there: your shell is still in the old path)"
     exit 0
     ;;
 esac

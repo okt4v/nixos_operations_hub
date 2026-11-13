@@ -19,11 +19,11 @@ check "vault created" '[ -f ~/dat/vlt/gocryptfs.conf ]' "hub vault open"
 check "Tailscale logged in" '[ "$(tailscale status --json | jq -r .BackendState)" = Running ]' "sudo tailscale up"
 check "Mullvad logged in" 'mullvad account get | grep -qi "account"' "mullvad account login <number>"
 check "trusted wifi list set" 'systemctl is-enabled net-trust' "hub.net.trusted = [ \"ssid\" ]; in the host file, then hub switch"
-check "a backup target enabled" '[ -n "$(systemctl list-unit-files "restic-backups-*.service" --no-legend)" ]' "hub.backup.external.enable = true; in the host file, then hub switch"
+check "a backup target enabled" '[ -n "$(systemctl list-unit-files "restic-backups-*.service" --no-legend)" ]' "hub feature on backupExternal (or backupHomelab, backupCloud), then hub switch"
 check "wallpaper chosen" '[ -e ~/med/img/wall/current ]' "ln -s <image> ~/med/img/wall/current"
 check "work git identity" '[ -f ~/.config/git/work ]' "create ~/.config/git/work with a [user] section"
 check "school git identity" '[ -f ~/.config/git/school ]' "create ~/.config/git/school with a [user] section"
-check "calendar synced" '[ -n "$(ls ~/.local/share/cal 2>/dev/null)" ]' "secret 'icloud', hub.cal.enable = true;, hub switch, vdirsyncer discover"
+check "calendar synced" '[ -n "$(ls ~/.local/share/cal 2>/dev/null)" ]' "secret 'icloud', hub feature on calendar, hub switch, vdirsyncer discover"
 check "Secure Boot" 'sbctl status | grep -qi "secure boot.*enabled"' "optional, see docs/INSTALL.md section 5"
 
 echo

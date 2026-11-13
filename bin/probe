@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# probe [--bad] — are the homelab services up? Checks every URL in
+# config/homelab/services at once. --bad prints only the ones that are down
+# (used by `health`, so they show in the bar).
+set -u
+conf=$(dirname "$(dirname "$(readlink -f "$0")")")/config/homelab/services
+check() { # check <name> <url>
+  code=$(curl -sk -o /dev/null --max-time 4 -w '%{http_code}' "$2" 2>/dev/null)
+  if [ "${code:-000}" != 000 ] && [ "$code" -lt 500 ]; then echo "up    $1"; else echo "DOWN  $1"; fi
+}
+res=$(grep -vE '^\s*(#|$)' "$conf" 2>/dev/null | while read -r name url; do check "$name" "$url" & done; wait)
+if [ "${1:-}" = --bad ]; then
+  printf '%s\n' "$res" | awk '$1 == "DOWN" { print $2 }'
+elif [ -n "$res" ]; then
+  printf '%s\n' "$res" | sort -k2
+else
+  echo "no services listed in config/homelab/services"
+fi

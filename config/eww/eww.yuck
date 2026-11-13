@@ -6,7 +6,7 @@
 (defvar show_agenda true)   (defvar show_tasks true)    (defvar show_system true)
 (defvar show_markets true)  (defvar show_focus true)    (defvar show_weather true)
 (defvar show_projects true) (defvar show_net true)      (defvar show_music false)
-(defvar show_inbox false)   (defvar show_month false)
+(defvar show_inbox false)   (defvar show_month false)    (defvar show_services false)
 
 (defpoll clock    :interval "20s" :initial "" "date '+%H:%M'")
 (defpoll day      :interval "10m" :initial "" "date '+%A %d %B'")
@@ -23,6 +23,7 @@
 (defpoll netinfo  :interval "30s" :initial "" :run-while show_net      "net")
 (defpoll music    :interval "5s"  :initial "" :run-while show_music    "playerctl metadata --format '{{ status }}\n{{ title }}\n{{ artist }}' 2>/dev/null || echo 'nothing playing'")
 (defpoll inboxtxt :interval "1m"  :initial "" :run-while show_inbox    "tail -n 7 ~/doc/notes/inbox.md 2>/dev/null | cut -c3-")
+(defpoll services :interval "1m" :initial "" :run-while show_services "probe")
 (defpoll month    :interval "1h"  :initial "" :run-while show_month    "cal -m | sed 's/_\\x08//g'")
 
 (defwidget slot [title show]
@@ -34,27 +35,28 @@
   (label :class "body ${class}" :xalign 0 :yalign 0 :text value))
 
 (defwidget dash []
-  (box :class "dash" :orientation "v" :spacing 14 :space-evenly false
-    (box :spacing 14 :space-evenly true
+  (box :class "dash" :orientation "v" :spacing 6 :space-evenly false
+    (box :spacing 6 :space-evenly true
       (slot :title "${clock}   ${day}" :show show_agenda (text :value {agenda == "" ? "nothing scheduled" : agenda}))
-      (slot :title "tasks" :show show_tasks (text :value {tasks == "" ? "no open tasks" : tasks}))
-      (slot :title "focus" :show show_focus
+      (slot :title "TASKS" :show show_tasks (text :value {tasks == "" ? "no open tasks" : tasks}))
+      (slot :title "FOCUS" :show show_focus
         (text :value "mode  ${hubmode == '' ? '–' : hubmode}")
         (text :value focus)
         (text :class "dim" :value "tracked today  ${tracked}"))
-      (slot :title "projects" :show show_projects (text :class "mono" :value {projects == "" ? "none in progress" : projects})))
-    (box :spacing 14 :space-evenly true
-      (slot :title "system" :show show_system
+      (slot :title "PROJECTS" :show show_projects (text :class "mono" :value {projects == "" ? "none in progress" : projects})))
+    (box :spacing 6 :space-evenly true
+      (slot :title "SYSTEM" :show show_system
         (text :value "cpu ${round(EWW_CPU.avg, 0)}%   ram ${round(EWW_RAM.used_mem_perc, 0)}%   disk ${round(EWW_DISK['/'].used_perc, 0)}%")
         (text :class "bad" :value health)
         (text :class "dim" :value hosts))
-      (slot :title "network" :show show_net (text :class "mono" :value netinfo))
-      (slot :title "markets" :show show_markets (text :class "mono" :value quotes))
-      (slot :title "weather" :show show_weather (text :value weather)))
-    (box :spacing 14 :space-evenly true
-      (slot :title "music" :show show_music (text :value music))
-      (slot :title "inbox" :show show_inbox (text :value {inboxtxt == "" ? "inbox is empty" : inboxtxt}))
-      (slot :title "month" :show show_month (text :class "mono" :value month)))))
+      (slot :title "NETWORK" :show show_net (text :class "mono" :value netinfo))
+      (slot :title "MARKETS" :show show_markets (text :class "mono" :value quotes))
+      (slot :title "WEATHER" :show show_weather (text :value weather)))
+    (box :spacing 6 :space-evenly true
+      (slot :title "MUSIC" :show show_music (text :value music))
+      (slot :title "INBOX" :show show_inbox (text :value {inboxtxt == "" ? "inbox is empty" : inboxtxt}))
+      (slot :title "MONTH" :show show_month (text :class "mono" :value month))
+      (slot :title "SERVICES" :show show_services (text :class "mono" :value services)))))
 
 (defwindow dash-bottom
   :monitor 0 :stacking "bg" :exclusive false :focusable false

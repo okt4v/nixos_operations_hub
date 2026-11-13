@@ -84,20 +84,21 @@ exists, `git commit` fails because commits are signed.
 | Secrets | `hub sec`: creates your age key (back it up in KeePassXC) and opens `secrets/secrets.yaml`. Add `restic:` and `icloud:` when you enable those features. |
 | Tailscale | `sudo tailscale up` |
 | Mullvad | `mullvad account login <number>` |
+| Features | `hub feature`: switch on or off what this machine should have |
 | Trusted wifi | `hub.net.trusted = [ "ssid" ];` in `hosts/dev-hub/default.nix` |
-| Calendar | secret `icloud` (app-specific password), `hub.cal.enable = true;`, `hub switch`, once `vdirsyncer discover` |
+| Calendar, mail | secret `icloud` (app-specific password), `hub feature on calendar` and/or `mail`, `hub switch`; for the calendar once `vdirsyncer discover` |
 | Git identities | `~/.config/git/work` and `~/.config/git/school`, each a `[user]` section |
-| Backups | label the drive's filesystem `bak`, `hub.backup.external.enable = true;`, `hub switch`, `hub bak`, `hub drill` |
+| Backups | label the drive's filesystem `bak`, `hub feature on backupExternal`, `hub switch`, `hub bak`, `hub drill` |
 | Monitors | `hub mon`, arrange, `hub mon save <name>` |
 | Wallpaper | `ln -s <image> ~/med/img/wall/current` |
-| Local LLM | `hub.ai.enable = true;`, `hub switch`, `ollama pull llama3.2:3b` |
+| Local LLM | `hub feature on ai`, `hub switch`, `ollama pull llama3.2:3b` |
 | Lab images | put base images at `~/tec/vm/<name>.qcow2`, then `hub lab up <name>` |
 
 ## 5. Secure Boot and TPM unlock (optional, real hardware only)
 
 1. Firmware setup: put Secure Boot into *Setup Mode*.
 2. `sudo sbctl create-keys`
-3. `hub.secureBoot.enable = true;` in the host file, `hub switch`
+3. `hub feature on secureBoot`, `hub switch`
 4. `sudo sbctl enroll-keys --microsoft`, reboot, enable Secure Boot in firmware
 5. `sudo sbctl status` shows *Secure Boot: enabled*
 6. `sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=7 --tpm2-with-pin=yes /dev/nvme0n1p2`
@@ -107,6 +108,7 @@ The passphrase keeps working as a fallback. Do not remove it.
 ## Adding a host
 
 1. `mkdir hosts/<name>` with a `default.nix` that imports the modules it needs from `modules/`
-   (a server: `core.nix`, `disk.nix`, `secrets.nix`) and sets `hub.disk`.
+   (a server: `core.nix`, `disk.nix`, `secrets.nix`) and sets `hub.disk`. For a desktop, copy
+   `hosts/dev-hub/` (it brings `features.nix`) and remove the E16 quirks.
 2. On the machine (booted from the hub ISO): `nixos-generate-config --no-filesystems --show-hardware-config` → `hosts/<name>/hardware.nix`.
 3. `hub install <name> <ip>`; later `hub deploy <name>`. Try it first with `hub vm <name>`.

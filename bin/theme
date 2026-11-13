@@ -1,12 +1,102 @@
 #!/usr/bin/env bash
-# theme [dark|light] — switch the palette everywhere; no argument toggles.
+# theme [name|apply|gen|list] — one palette for every app.
+#   theme          toggle dark/light
+#   theme <name>   switch to config/palette/<name>
+#   theme apply    re-read the current palette after editing its file
+#   theme list     palettes that exist
+# A palette is a file of eight colours in config/palette/; add a file to add
+# one. From it the colour files for sway, waybar, kitty, tmux, fuzzel, mako
+# and eww are written to ~/.config/pal/<name>/. No rebuild.
 set -eu
 
+hub=$(dirname "$(dirname "$(readlink -f "$0")")")
+src=$hub/config/palette
 dir=${XDG_CONFIG_HOME:-$HOME/.config}/pal
-cur=$(readlink "$dir/current")
-new=${1:-$([ "$cur" = dark ] && echo light || echo dark)}
-[ -d "$dir/$new" ] || { echo "theme: no palette '$new' in $dir" >&2; exit 1; }
 
+gen() { # gen <name>: write every app's colour file for one palette
+  # shellcheck disable=SC2034 # the colours are read through ${!k} below
+  local name=$1 out=$dir/$1 kind=dark bg fg sel mute acc ok warn crit
+  # shellcheck source=/dev/null
+  . "$src/$name"
+  mkdir -p "$out"
+  echo "$name" >"$out/name"
+  echo "$kind" >"$out/kind"
+  cat >"$out/sway.conf" <<EOT
+set \$bg #$bg
+# class                 border  bg      text    indicator child_border
+client.focused          #$acc #$acc #$bg #$acc #$acc
+client.focused_inactive #$sel #$sel #$fg #$sel #$sel
+client.unfocused        #$sel #$bg #$mute #$sel #$sel
+client.urgent           #$crit #$crit #$bg #$crit #$crit
+EOT
+  for k in bg fg sel mute acc ok warn crit; do echo "@define-color $k #${!k};"; done >"$out/bar.css"
+  for k in bg fg sel mute acc ok warn crit; do echo "\$$k: #${!k};"; done >"$out/eww.scss"
+  # ponytail: only the base colours; the 16 ANSI colours stay kitty's
+  # defaults. Add color0..15 here if a palette reads badly.
+  cat >"$out/kitty.conf" <<EOT
+background #$bg
+foreground #$fg
+cursor #$acc
+selection_background #$sel
+selection_foreground #$fg
+active_border_color #$acc
+inactive_border_color #$sel
+url_color #$acc
+EOT
+  cat >"$out/tmux.conf" <<EOT
+set -g status-style "bg=#$bg,fg=#$fg"
+set -g status-left-style "bg=#$acc,fg=#$bg,bold"
+set -g status-right "#[fg=#$acc]#(cat ~/.local/state/hub/mode 2>/dev/null) #[fg=#$mute]%H:%M  %d-%b-%Y "
+set -g window-status-current-style "bg=#$sel,fg=#$fg,bold"
+set -g pane-border-style "fg=#$sel"
+set -g pane-active-border-style "fg=#$acc"
+EOT
+  cat >"$out/fuzzel.ini" <<EOT
+[colors]
+background=${bg}f5
+text=${fg}ff
+prompt=${acc}ff
+input=${fg}ff
+match=${acc}ff
+selection=${acc}ff
+selection-text=${bg}ff
+selection-match=${bg}ff
+border=${acc}ff
+EOT
+  cat >"$out/mako" <<EOT
+font=Share Tech Mono 11
+background-color=#$bg
+text-color=#$fg
+border-color=#$acc
+border-radius=0
+border-size=1
+default-timeout=5000
+max-visible=5
+sort=-time
+anchor=top-right
+width=340
+height=110
+margin=8
+padding=10
+
+[mode=dnd]
+invisible=1
+EOT
+}
+gen_all() { for f in "$src"/*; do gen "$(basename "$f")"; done; }
+
+cur=$(readlink "$dir/current" 2>/dev/null || echo dark)
+case ${1:-} in
+  list) ls "$src"; exit 0 ;;
+  # gen: files only, no reloads (run at login by home-manager)
+  gen) gen_all; [ -e "$dir/current" ] || ln -s dark "$dir/current"; exit 0 ;;
+  apply) new=$cur ;;
+  '') new=$([ "$cur" = dark ] && echo light || echo dark) ;;
+  *) new=$1 ;;
+esac
+[ -f "$src/$new" ] || { echo "theme: no palette '$new' (have: $(cd "$src" && echo *))" >&2; exit 1; }
+
+gen_all
 ln -sfn "$new" "$dir/current"
 
 # Every reload is best-effort: the app may simply not be running.
@@ -17,7 +107,7 @@ tmux source-file "${XDG_CONFIG_HOME:-$HOME/.config}/tmux/tmux.conf" 2>/dev/null 
 makoctl reload 2>/dev/null || true
 eww reload 2>/dev/null || true
 
-if [ "$new" = light ]; then gtk=adw-gtk3 scheme=prefer-light; else gtk=adw-gtk3-dark scheme=prefer-dark; fi
+if [ "$(cat "$dir/$new/kind")" = light ]; then gtk=adw-gtk3 scheme=prefer-light; else gtk=adw-gtk3-dark scheme=prefer-dark; fi
 gsettings set org.gnome.desktop.interface gtk-theme "$gtk" 2>/dev/null || true
 gsettings set org.gnome.desktop.interface color-scheme "$scheme" 2>/dev/null || true
 

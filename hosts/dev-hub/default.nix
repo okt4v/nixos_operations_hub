@@ -6,27 +6,43 @@
   ...
 }:
 
+let
+  # Which features are on: features.nix, edited by `hub feature`.
+  f = import ./features.nix;
+  on = flag: module: if flag then [ module ] else [ ];
+in
 {
   imports = [
     ./hardware.nix
     ../../modules/core.nix
     ../../modules/disk.nix
     ../../modules/desktop.nix
-    ../../modules/keyboard.nix
     ../../modules/home-manager.nix
-    ../../modules/dev.nix
-    ../../modules/lab.nix
-    ../../modules/play.nix
-    ../../modules/snapshots.nix
-    ../../modules/backup.nix
-    ../../modules/secrets.nix
-    ../../modules/boot.nix
-    ../../modules/power.nix
     ../../modules/network.nix
-    ../../modules/meetings.nix
+    ../../modules/secrets.nix
+    ../../modules/backup.nix
+    ../../modules/boot.nix
     ../../modules/ai.nix
-    ../../modules/hack.nix
-  ];
+  ]
+  ++ on f.keyboard ../../modules/keyboard.nix
+  ++ on f.dev ../../modules/dev.nix
+  ++ on f.lab ../../modules/lab.nix
+  ++ on f.hack ../../modules/hack.nix
+  ++ on f.play ../../modules/play.nix
+  ++ on f.meetings ../../modules/meetings.nix
+  ++ on f.minutes ../../modules/minutes.nix
+  ++ on f.snapshots ../../modules/snapshots.nix
+  ++ on f.power ../../modules/power.nix
+  ++ on f.phone ../../modules/phone.nix
+  ++ on f.mail ../../modules/mail.nix;
+
+  hub.features = f;
+  hub.cal.enable = f.calendar;
+  hub.ai.enable = f.ai;
+  hub.secureBoot.enable = f.secureBoot;
+  hub.backup.external.enable = f.backupExternal;
+  hub.backup.homelab.enable = f.backupHomelab;
+  hub.backup.cloud.enable = f.backupCloud;
 
   hub.disk = "/dev/nvme0n1";
 

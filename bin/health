@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # health [--bar] — things that need attention: failed units, full disk,
-# stale snapshots or backups, a waiting update. Prints nothing when all is
+# stale snapshots or backups, homelab services that are down, a waiting update. Prints nothing when all is
 # fine; --bar gives JSON for waybar.
 set -u
 
@@ -24,6 +24,9 @@ for unit in $(systemctl list-unit-files 'restic-backups-*.service' --no-legend 2
   h=$(age_h "$(date -d "$ts" +%s)")
   [ "$h" -lt 168 ] || problems+=("backup ${name%.service}: $((h / 24))d old")
 done
+
+down=$("$(dirname "$(readlink -f "$0")")/probe" --bad | xargs)
+[ -z "$down" ] || problems+=("down: $down")
 
 [ ! -s "${XDG_STATE_HOME:-$HOME/.local/state}/hub/update" ] || problems+=("update ready: hub update")
 

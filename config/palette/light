@@ -1,0 +1,10 @@
+# Light palette. Edit a value, then run `theme apply`.
+kind=light
+bg=f2f2f7
+fg=1c1c1e
+sel=d1d1d6
+mute=6e6e73
+acc=b35900
+ok=248a3d
+warn=c93400
+crit=d70015

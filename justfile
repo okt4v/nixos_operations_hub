@@ -72,6 +72,18 @@ keys:
 widgets *args:
     @bin/widgets {{ args }}
 
+# switch features of this host on/off: menu, or hub feature list|on|off <name>
+feature *args:
+    @bin/feature {{ args }}
+
+# homelab services from config/homelab/services: which are up
+probe:
+    @bin/probe
+
+# record a call and transcribe it into ~/doc/notes/meetings (run again to stop)
+minutes:
+    @bin/minutes
+
 # what needs attention (failed units, disk, snapshots, backups, updates)
 health:
     @bin/health

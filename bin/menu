@@ -8,7 +8,7 @@ pick() { fuzzel --dmenu --prompt "$1> "; }
 
 case ${1:-} in
   "")
-    sec=$(printf '%s\n' windows projects modes widgets hosts notes grab focus clipboard calc emoji audio wifi bluetooth pass theme power | pick menu) || exit 0
+    sec=$(printf '%s\n' windows projects modes widgets hosts services notes card minutes mail grab focus clipboard calc emoji audio wifi bluetooth pass theme power | pick menu) || exit 0
     exec "$0" "$sec"
     ;;
   windows)
@@ -20,6 +20,10 @@ case ${1:-} in
   modes) exec mode ;;
   widgets) exec widgets ;;
   hosts) exec hp ;;
+  services) exec kitty --hold probe ;;
+  card) exec card ;;
+  minutes) exec minutes ;;
+  mail) exec pad mail ;;
   notes) exec note find ;;
   grab) exec grab "$(printf '%s\n' text tex qr color | pick grab)" ;;
   focus)

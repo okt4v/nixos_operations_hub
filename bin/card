@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# card [front] — make a flashcard from the clipboard. The clipboard (a text
+# selection you copied, or a `grab tex` formula) becomes the back; you type
+# the front. Cards are appended to ~/doc/school/cards.tsv.
+# ponytail: a file Anki imports (File → Import, tab-separated), not a live
+# connection. Use the AnkiConnect add-on if importing by hand gets old.
+set -eu
+back=$(wl-paste --no-newline 2>/dev/null | tr '\t\n' '  ')
+[ -n "$back" ] || { notify-send -t 3000 "card" "the clipboard is empty"; exit 1; }
+front=${*:-$(fuzzel --dmenu --lines 0 --width 60 --prompt 'card front> ' </dev/null || true)}
+[ -n "$front" ] || exit 0
+file=$HOME/doc/school/cards.tsv
+mkdir -p "$(dirname "$file")"
+printf '%s\t%s\n' "${front//$'\t'/ }" "$back" >>"$file"
+notify-send -t 3000 "Card added ($(wc -l <"$file") waiting)" "$front"

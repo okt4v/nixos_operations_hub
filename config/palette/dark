@@ -1,0 +1,11 @@
+# Black and amber, the default. Edit a value, then run `theme apply`.
+# Hex without "#". kind is dark or light (GTK and nvim follow it).
+kind=dark
+bg=000000
+fg=e6e6e6
+sel=2a2a2a
+mute=808080
+acc=ff9900
+ok=00d26a
+warn=ffd400
+crit=ff3b30

@@ -18,6 +18,14 @@
     description = "Absolute path of the checked-out flake.";
   };
 
+  # The host's feature flags (hosts/<host>/features.nix), for the few places
+  # that need to ask instead of being a whole module.
+  options.hub.features = lib.mkOption {
+    type = lib.types.attrsOf lib.types.bool;
+    default = { };
+    description = "Feature flags of this host.";
+  };
+
   config = {
     nix.settings = {
       experimental-features = [

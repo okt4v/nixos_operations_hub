@@ -1,15 +1,22 @@
+// Terminal look: square panels, monospace, an inverted amber header per panel.
 // Colours ($bg $fg $sel $mute $acc $ok $warn $crit) come from the palette.
 @import '/home/oktav/.config/pal/current/eww.scss';
 
-* { all: unset; font-family: "Inter"; font-size: 13px; color: $fg; }
+* { all: unset; font-family: "Share Tech Mono"; font-size: 13px; color: $fg; }
 .dash { margin: 0; }
 .panel {
-  background-color: rgba($bg, 0.82);
+  background-color: rgba($bg, 0.92);
   border: 1px solid $sel;
-  border-radius: 12px;
-  padding: 14px 16px;
+  border-radius: 0;
+  padding: 0 0 8px 0;
 }
-.title { font-size: 15px; font-weight: 600; color: $acc; }
+.title {
+  background-color: $acc;
+  color: $bg;
+  font-weight: 700;
+  padding: 2px 8px;
+}
+.body { padding: 0 8px; }
 .dim { color: $mute; }
 .bad { color: $crit; }
 .mono { font-family: "Share Tech Mono"; }

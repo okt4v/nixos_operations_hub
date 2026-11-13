@@ -1,5 +1,7 @@
 include /etc/sway/config.d/*
 include ./variables.conf
+# colours first: output.conf uses $bg
+include ~/.config/pal/current/sway.conf
 include ./output.conf
 include ./idle.conf
 include ./input.conf
@@ -7,4 +9,3 @@ include ./keybindings.conf
 include ./windowrules.conf
 include ./startup.conf
 include ./appearance.conf
-include ~/.config/pal/current/sway.conf
