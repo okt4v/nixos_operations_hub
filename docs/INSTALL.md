@@ -68,7 +68,7 @@ Disk passphrase, then you are logged in. First password is `changeme`.
 
 ```sh
 passwd
-git clone <your remote> ~/tec/nix          # the path hub.dir points at; dotfiles are linked from here
+git clone https://github.com/okt4v/nixos_operations_hub ~/tec/nix        # the path hub.dir points at; dotfiles are linked from here
 hub switch
 ```
 
