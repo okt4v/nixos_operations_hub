@@ -18,5 +18,6 @@
   backupExternal = false; # restic to a USB drive labelled `bak`
   backupHomelab = false; # daily restic to a homelab server; set hub.backup.homelab.repo first
   backupCloud = false; # daily restic to cloud storage; needs secrets `restic-cloud-*`
+  freshRoot = false; # / is wiped at every boot; read modules/fresh-root.nix, run `hub passwd` first
   secureBoot = false; # Secure Boot + TPM unlock; see docs/INSTALL.md first
 }

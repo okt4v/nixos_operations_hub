@@ -54,6 +54,7 @@ Everything optional is a flag in `hosts/<host>/features.nix`, one per line.
 | `browser` | Zen with extensions and privacy settings from the repo |
 | `ai` | Local LLM |
 | `backupExternal`, `backupHomelab`, `backupCloud` | The three backup targets |
+| `freshRoot` | `/` is wiped at every boot (see Safety) |
 | `secureBoot` | Secure Boot and TPM unlock (read INSTALL.md section 5 first) |
 
 A feature that needs a secret cannot be built before `hub sec` has created the secrets file
@@ -181,6 +182,12 @@ path does not exist, `mkcd`, `x <archive>` extracts. Aliases: `g` git, `lg` lazy
   secrets `restic-cloud-repo` and `restic-cloud-env` (see `modules/backup.nix`).
 - `hub drill` restores a random file from a snapshot and from each backup and compares it.
 - `hub sec` edits the encrypted secrets.
+- **Fresh root** (feature `freshRoot`, off by default): `/` becomes a RAM disk that starts empty at
+  every boot, so nothing undeclared piles up. `/home`, `/nix`, logs and the directories listed in
+  `modules/fresh-root.nix` (service state, VPN account, host keys) survive. Before switching it on,
+  run `hub passwd` and use that instead of `passwd` from then on, or the password resets to the
+  initial one at reboot. It takes effect at the next reboot; switching it off and rebooting brings
+  the ordinary root back with its state.
 - `hub charge` charges to 100% once; otherwise the battery stops at 80%.
 
 ## Lab and homelab

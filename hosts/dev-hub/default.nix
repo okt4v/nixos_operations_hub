@@ -34,7 +34,8 @@ in
   ++ on f.snapshots ../../modules/snapshots.nix
   ++ on f.power ../../modules/power.nix
   ++ on f.phone ../../modules/phone.nix
-  ++ on f.mail ../../modules/mail.nix;
+  ++ on f.mail ../../modules/mail.nix
+  ++ on f.freshRoot ../../modules/fresh-root.nix;
 
   hub.features = f;
   hub.cal.enable = f.calendar;

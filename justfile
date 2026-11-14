@@ -84,6 +84,14 @@ probe:
 minutes:
     @bin/minutes
 
+# change your password (also stores it for the feature freshRoot, where plain passwd is forgotten at reboot)
+passwd:
+    #!/usr/bin/env bash
+    set -eu
+    passwd
+    dir=/etc; [ ! -d /persist/etc ] || dir=/persist/etc
+    sudo sh -c "umask 077; getent shadow $USER | cut -d: -f2 > $dir/hub-password"
+
 # what needs attention (failed units, disk, snapshots, backups, updates)
 health:
     @bin/health
