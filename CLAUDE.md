@@ -6,7 +6,7 @@ Flake for the user's machines. Lives at `~/tec/nix` on an installed host (`hub.d
 
 - `flake.nix` — every directory in `hosts/` is a `nixosConfiguration`
 - `hosts/<host>/default.nix` — imports from `modules/`, host quirks; `features.nix` — on/off flags (`hub feature`); `hardware.nix` generated
-- `modules/` — system modules, one concern each (core, desktop, keyboard, dev, lab, play, network, snapshots, backup, secrets, boot, power, meetings, minutes, mail, phone, fresh-root, ai, hack, disk, home-manager)
+- `modules/` — system modules, one concern each (core, desktop, keyboard, dev, lab, play, network, snapshots, backup, secrets, boot, power, meetings, minutes, mail, phone, fresh-root, extras (small flags), ai, hack, disk, home-manager)
 - `home/` — Home Manager (shell, desktop, dev, apps, dirs, palette, calendar, finance)
 - `config/` — dotfiles, **linked live** into `~/.config` (edit + reload, no rebuild). Exception: `config/kanata` needs a rebuild
 - `bin/` — scripts, live on PATH; `hub` is a fuzzy menu over the `justfile`

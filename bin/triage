@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# triage — empty the inbox (~/doc/notes/inbox.md, filled by `cap`). For each
+# line: t = make it a task, n = move it to today's note, d = delete,
+# k or Enter = keep, q = stop.
+set -eu
+inbox=$HOME/doc/notes/inbox.md
+[ -s "$inbox" ] || { echo "inbox is empty"; exit 0; }
+keep=$(mktemp)
+quit=
+while IFS= read -r line <&3; do
+  text=${line#- }
+  if [ -n "$quit" ] || [ "$line" = "$text" ]; then echo "$line" >>"$keep"; continue; fi
+  printf '%s\n  [t]ask [n]ote [d]elete [k]eep [q]uit > ' "$text"
+  read -r -n1 key || key=q
+  echo
+  case $key in
+    t) task add "$(printf '%s' "$text" | cut -d' ' -f3-)" >/dev/null ;;
+    n) mkdir -p "$HOME/doc/notes/daily"; echo "- $text" >>"$HOME/doc/notes/daily/$(date +%F).md" ;;
+    d) ;;
+    q) quit=1; echo "$line" >>"$keep" ;;
+    *) echo "$line" >>"$keep" ;;
+  esac
+done 3<"$inbox"
+cat "$keep" >"$inbox"
+rm -f "$keep"
+echo "inbox: $(grep -c '^- ' "$inbox" || true) left"

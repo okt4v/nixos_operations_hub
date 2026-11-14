@@ -5,6 +5,8 @@
 #   pj -s [status]   set the status of the project you are in (asks if omitted);
 #                    done moves it to ~/dev/finished, reopening moves it back
 #   pj -l            list all projects with their status
+#   pj -n            open the notes of the project you are in
+#                    (~/doc/notes/projects/<name>.md)
 # Statuses: plan, wip, paused, done. A project without one shows "-".
 # They are kept in ~/.local/state/hub/projects (path<TAB>status), outside the
 # projects themselves, so nothing lands in their git history.
@@ -33,6 +35,12 @@ case ${1:-} in
   -l)
     list | show
     exit 0
+    ;;
+  -n) # notes of the project you are in, kept with your other notes
+    rel=${PWD#"$root"/}
+    [ "$rel" != "$PWD" ] || { echo "pj: not inside a project (~/dev/<folder>/<name>)" >&2; exit 1; }
+    mkdir -p "$HOME/doc/notes/projects"
+    exec nvim "$HOME/doc/notes/projects/$(printf '%s' "$rel" | cut -d/ -f2).md"
     ;;
   -s)
     rel=${PWD#"$root"/}

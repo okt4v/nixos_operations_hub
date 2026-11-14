@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# remind <when> <text> — a notification later. <when> is a time span
+# (10m, 1h30m) or a clock time today or on a date (17:30, "2026-12-01 09:00").
+#   remind list    pending reminders
+# ponytail: systemd user timers; they do not survive a logout or reboot.
+set -eu
+[ "${1:-}" != list ] || exec systemctl --user list-timers 'remind-*' --no-pager
+when=${1:?usage: remind <when> <text> | remind list}
+shift
+text=${*:?usage: remind <when> <text>}
+case $when in *[0-9][smhd]) flag=--on-active ;; *) flag=--on-calendar ;; esac
+systemd-run --user --quiet --unit "remind-$(date +%s)" "$flag=$when" notify-send -u critical "Reminder" "$text"
+echo "reminder set: $when — $text"

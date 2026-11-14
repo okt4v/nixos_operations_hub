@@ -5,10 +5,11 @@
 set -eu
 
 pick() { fuzzel --dmenu --prompt "$1> "; }
+conf=$(dirname "$(dirname "$(readlink -f "$0")")")/config
 
 case ${1:-} in
   "")
-    sec=$(printf '%s\n' windows projects modes widgets hosts services notes card minutes mail grab focus clipboard calc emoji audio wifi bluetooth pass theme power | pick menu) || exit 0
+    sec=$(printf '%s\n' windows projects modes widgets hosts services notes links snip card minutes mail grab qr focus clipboard calc emoji pw audio wifi bluetooth vpn night wall kill pass theme power | pick menu) || exit 0
     exec "$0" "$sec"
     ;;
   windows)
@@ -44,6 +45,37 @@ case ${1:-} in
     ;;
   wifi) exec kitty impala ;;
   bluetooth) exec kitty bluetui ;;
+  links) # config/links: name, then the URL
+    url=$(grep -vE '^\s*(#|$)' "$conf/links" | pick link | awk '{ print $NF }') || exit 0
+    [ -z "$url" ] || exec xdg-open "$url"
+    ;;
+  snip) # config/snippets: name, two or more spaces, text
+    line=$(grep -vE '^\s*(#|$)' "$conf/snippets" | pick snippet) || exit 0
+    printf '%b' "$(printf '%s' "$line" | sed -E 's/^[^ ]+( [^ ]+)*  +//')" | wl-copy
+    ;;
+  qr) exec qr ;;
+  pw) # a new random password, pasteable once
+    LC_ALL=C tr -dc 'A-Za-z0-9!#%+=?@_-' </dev/urandom | head -c 24 | wl-copy --paste-once
+    notify-send -t 3000 "Password" "24 characters in the clipboard, for one paste"
+    ;;
+  vpn)
+    what=$(printf '%s\n' connect disconnect reconnect "$(mullvad relay list | awk '/^[A-Z].*\([a-z]{2}\)$/ { gsub(/[()]/, "", $NF); print $NF "  " $0 }')" | pick vpn | awk '{ print $1 }') || exit 0
+    case $what in
+      connect | disconnect | reconnect) mullvad "$what" ;;
+      ??) mullvad relay set location "$what" && mullvad connect ;;
+    esac
+    ;;
+  night) exec night ;;
+  wall) # pick the wallpaper from ~/med/img/wall
+    dir=$HOME/med/img/wall
+    img=$(find "$dir" -maxdepth 1 -type f -printf '%f\n' | sort | pick wallpaper) || exit 0
+    ln -sfn "$dir/$img" "$dir/current"
+    swaymsg reload >/dev/null
+    ;;
+  kill)
+    pid=$(ps -u "$USER" -o pid=,pmem=,comm= --sort=-pmem | head -40 | pick kill | awk '{ print $1 }') || exit 0
+    [ -z "$pid" ] || kill "$pid"
+    ;;
   pass) exec pad pass ;;
   theme) exec theme ;;
   power)

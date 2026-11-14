@@ -1,0 +1,4 @@
+# Quick links for `menu links`: a name, a tab or two spaces, then the URL.
+nixos options   https://search.nixos.org/options
+nix packages    https://search.nixos.org/packages
+github          https://github.com

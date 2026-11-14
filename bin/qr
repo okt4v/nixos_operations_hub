@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# qr [text] — show text (default: the clipboard) as a QR code, to get a link
+# or a note onto your phone. In a terminal it prints; from the menu it opens
+# a window.
+set -eu
+text=${*:-$(wl-paste --no-newline)}
+[ -n "$text" ] || { echo "qr: nothing to encode" >&2; exit 1; }
+if [ -t 1 ]; then
+  qrencode -t ANSIUTF8 -- "$text"
+else
+  img=${XDG_RUNTIME_DIR:-/tmp}/qr.png
+  qrencode -s 12 -o "$img" -- "$text"
+  exec imv "$img"
+fi

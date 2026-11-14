@@ -154,6 +154,8 @@ in
     tldr
     navi
     ncdu
+    trash-cli # `del`
+    qrencode # `qr`
     zip
     unzip
     psmisc

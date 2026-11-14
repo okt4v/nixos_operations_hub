@@ -10,6 +10,12 @@
   minutes = true; # `minutes`: record a call, transcribe it locally
   snapshots = true; # hourly /home snapshots (snapper)
   power = true; # 80% charge cap, automatic power profiles
+  firmware = true; # `hub firmware`: BIOS and device firmware updates (fwupd)
+  oom = true; # stop a runaway process before the machine freezes (earlyoom)
+  batteryAlert = true; # notifications for low battery and charger changes
+  nightlight = true; # `night`: warmer screen after sunset
+  timezone = false; # the clock follows your location (geoclue)
+  boxes = false; # distrobox: other distributions as containers
   phone = false; # KDE Connect: phone notifications, clipboard, files
   mail = false; # terminal mail (aerc) and unread count; needs secret `icloud`
   calendar = false; # iCloud calendar sync; needs secret `icloud`

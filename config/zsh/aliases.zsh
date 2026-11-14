@@ -1,6 +1,7 @@
 alias v='nvim'
 alias g='git'
 alias lg='lazygit'
+alias del='trash-put' # rm with an undo: trash-list, trash-restore
 alias h='hub'
 alias t='task'
 alias nd='nix develop'

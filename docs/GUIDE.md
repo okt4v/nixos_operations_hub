@@ -49,6 +49,12 @@ Everything optional is a flag in `hosts/<host>/features.nix`, one per line.
 | `play` | Steam and games |
 | `meetings`, `minutes` | Noise-suppressed mic and OBS; call recording with transcript |
 | `snapshots`, `power` | `/home` snapshots; charge cap and power profiles |
+| `firmware` | `hub firmware`: BIOS and device firmware updates |
+| `oom` | A runaway process is stopped before the machine freezes |
+| `batteryAlert` | Notifications for low battery and charger changes |
+| `nightlight` | Warmer screen after sunset (`Super+Shift+N` toggles) |
+| `timezone` | The clock follows your location |
+| `boxes` | distrobox: other Linux distributions as containers sharing your home |
 | `phone` | KDE Connect |
 | `mail`, `calendar` | Terminal mail; iCloud calendar. Both need the secret `icloud` |
 | `browser` | Zen with extensions and privacy settings from the repo |
@@ -72,7 +78,7 @@ A new file in that folder is a new palette: `theme <name>`. `theme list` shows t
 |---|---|
 | `Super+Return` | Terminal |
 | `Super+Space` | App launcher |
-| `Super+Shift+Space` | `menu`: windows, projects, modes, widgets, hosts, notes, grab, focus, clipboard, calc, emoji, audio, wifi, bluetooth, pass, theme, power |
+| `Super+Shift+Space` | `menu`: everything that is not "start an app" (see below) |
 | `Super+Q` | Close window |
 | `Super+H/J/K/L` | Focus; with `Shift`: move |
 | `Super+1…` | Workspace; `Super+Tab` cycles |
@@ -81,6 +87,16 @@ A new file in that folder is a new palette: `theme <name>`. `theme list` shows t
 | `Super+C` | Clipboard history |
 | `Super+T` | Toggle the dark and light palette, everywhere, instantly |
 | `Alt+Ctrl+L` | Lock |
+
+**The menu** (`Super+Shift+Space`) has these sections: windows, projects, modes, widgets, hosts,
+services, notes, links, snip, card, minutes, mail, grab, qr, focus, clipboard, calc, emoji, pw,
+audio, wifi, bluetooth, vpn, night, wall, kill, pass, theme, power. The less obvious ones:
+
+- `links` opens a bookmark from `config/links`; `snip` copies a text snippet from `config/snippets`.
+- `qr` shows the clipboard as a QR code, to get a link onto your phone (`qr <text>` in a terminal).
+- `pw` puts a new 24-character password in the clipboard, for one paste.
+- `vpn` connects, disconnects or picks a country; `wall` picks the wallpaper from `~/med/img/wall`;
+  `kill` stops a process, heaviest first.
 
 **Scratchpads** toggle a floating window and start the app on first use:
 `` Super+` `` terminal, `Super+Ctrl+N` note, `Super+Ctrl+C` calculator, `Super+Ctrl+A` agenda,
@@ -128,11 +144,12 @@ A mode is one file, `config/mode/<name>.sh`, with an `up()` and a `down()` funct
 ## Projects
 
 - `hub new <template> <name>` creates `~/dev/active/<name>` with its own devshell, direnv and git.
-  Templates: `py`, `quant`, `node`, `c`, `go`, `pen`, `tex`.
+  Templates: `py`, `quant`, `node`, `c`, `go`, `rust`, `pen`, `tex`.
   Libraries belong in the project's `flake.nix`, never in the system.
 - `pj [query]` opens or resumes the project's tmux session (nvim plus a shell) and starts time tracking.
 - `pj -s [plan|wip|paused|done]` sets the status of the project you are in; `pj -l` lists all. Done projects sort last.
   `done` moves the project to `~/dev/finished`; any other status on a finished project moves it back to `~/dev/active`.
+- `pj -n` opens the notes of the project you are in (`~/doc/notes/projects/<name>.md`).
 - `hub svc up|down` runs the project's services (Postgres, Redis, …) declared in its `devenv.nix`.
 - `hub agent <name> [command]` runs a coding agent in its own git worktree, jailed: it can write only there and cannot see your home, SSH keys, vault or secrets.
 - `hub report` shows the week's tracked time by mode and project.
@@ -142,11 +159,18 @@ A mode is one file, `config/mode/<name>.sh`, with an `up()` and a `down()` funct
 
 Shell: `Ctrl+R` searches history (atuin), `cd <fragment>` jumps to a known directory when the
 path does not exist, `mkcd`, `x <archive>` extracts. Aliases: `g` git, `lg` lazygit, `v` nvim,
-`t` task, `nd` nix develop.
+`t` task, `nd` nix develop, `del` moves files to the trash instead of deleting (`trash-restore` undoes).
 
 ## Notes, tasks, focus
 
 - `Super+N` captures one line into `~/doc/notes/inbox.md`. Start it with `t ` and it becomes a task instead.
+- `hub triage` empties that inbox line by line: make it a task, move it to today's note, delete or keep.
+- `hub review` writes the weekly review note (tracked time, finished tasks, commits per project,
+  open projects) into `~/doc/notes/weekly/` and opens it.
+- `remind 25m "call back"` or `remind 17:30 "leave"` notifies you later; `remind list` shows what is
+  pending. Reminders do not survive a logout.
+- **Dictation** (feature `minutes`): `Super+F11` starts listening, again stops, and what you said
+  is typed into the focused window. Local; it shares the speech model with meeting notes.
 - `Super+Ctrl+D` opens today's daily note; `note find` searches all notes. `~/doc/notes` is also an Obsidian vault.
 - `focus [minutes] [subject]` starts a focus block: notifications held, distracting sites blocked,
   time logged. `focus stop` ends it early. The blocked sites are `hub.focus.sites` in the host file.
@@ -188,6 +212,7 @@ path does not exist, `mkcd`, `x <archive>` extracts. Aliases: `g` git, `lg` lazy
   run `hub passwd` and use that instead of `passwd` from then on, or the password resets to the
   initial one at reboot. It takes effect at the next reboot; switching it off and rebooting brings
   the ordinary root back with its state.
+- `hub disk` shows what is using your home; `hub firmware` installs firmware updates.
 - `hub charge` charges to 100% once; otherwise the battery stops at 80%.
 
 ## Lab and homelab

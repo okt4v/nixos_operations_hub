@@ -17,6 +17,8 @@ row focus "$(focus --text 2>/dev/null)"
 row tracked "$(timew summary :day 2>/dev/null | awk '$NF ~ /^[0-9]+:[0-9][0-9]:[0-9][0-9]$/ { t = $NF } END { print (t ? t : "0:00") " today" }')"
 row projects "$(pj -l 2>/dev/null | awk '{ n[$1]++ } END { printf "%d wip, %d plan, %d paused, %d done", n["wip"], n["plan"], n["paused"], n["done"] }')"
 row tasks "$(task rc.verbose=nothing +PENDING count 2>/dev/null) pending, inbox $(grep -c '^- ' "$HOME/doc/notes/inbox.md" 2>/dev/null || echo 0)"
+hub=$(dirname "$(dirname "$(readlink -f "$0")")")
+row repo "$(git -C "$hub" status --porcelain 2>/dev/null | wc -l) uncommitted, $(git -C "$hub" rev-list --count '@{u}..' 2>/dev/null || echo '?') unpushed"
 row snapshots "$(find /home/.snapshots -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)"
 
 problems=$(health 2>/dev/null)

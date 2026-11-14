@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# night [on|off] — warmer screen colours after sunset, for the place in
+# config/eww/weather.conf. No argument toggles. Needs the feature `nightlight`.
+set -eu
+command -v wlsunset >/dev/null || { echo "night: the feature is off — hub feature on nightlight, then hub switch" >&2; exit 1; }
+lat=48.21 lon=16.37
+# shellcheck source=/dev/null
+. "$(dirname "$(dirname "$(readlink -f "$0")")")/config/eww/weather.conf"
+want=${1:-$(pgrep -x wlsunset >/dev/null && echo off || echo on)}
+pkill -x wlsunset || true
+[ "$want" = off ] || { setsid -f wlsunset -l "$lat" -L "$lon" >/dev/null 2>&1; }
+echo "night light $want"

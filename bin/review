@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# review — weekly review. Writes ~/doc/notes/weekly/<year>-W<week>.md with
+# the week's tracked time, finished tasks, commits per project and what is
+# still open, then opens it for your own notes.
+set -eu
+out=$HOME/doc/notes/weekly
+mkdir -p "$out"
+file=$out/$(date +%G-W%V).md
+if [ ! -f "$file" ]; then
+  {
+    echo "# Week $(date +%V), $(date +%G)"
+    printf '\n## Time\n\n```\n'
+    timew summary :week 2>/dev/null || echo "nothing tracked"
+    printf '```\n\n## Done\n\n'
+    task rc.verbose=nothing end.after:today-7d completed 2>/dev/null | sed 's/^/    /' || true
+    printf '\n## Commits\n\n'
+    for d in "$HOME"/dev/*/*/; do
+      n=$(git -C "$d" log --oneline --since='7 days ago' 2>/dev/null | wc -l)
+      [ "$n" -eq 0 ] || echo "- $(basename "$d"): $n"
+    done
+    printf '\n## Open\n\n'
+    pj -l 2>/dev/null | awk '$1 == "wip" || $1 == "paused" { print "- " $2 " (" $1 ")" }'
+    echo "- inbox: $(grep -c '^- ' "$HOME/doc/notes/inbox.md" 2>/dev/null || echo 0) item(s) — \`triage\`"
+    printf '\n## Went well\n\n\n## Change next week\n\n'
+  } >"$file"
+fi
+exec nvim "$file"

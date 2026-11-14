@@ -23,6 +23,7 @@ in
     ../../modules/backup.nix
     ../../modules/boot.nix
     ../../modules/ai.nix
+    ../../modules/extras.nix
   ]
   ++ on f.keyboard ../../modules/keyboard.nix
   ++ on f.dev ../../modules/dev.nix

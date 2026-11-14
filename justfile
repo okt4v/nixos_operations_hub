@@ -92,6 +92,27 @@ passwd:
     dir=/etc; [ ! -d /persist/etc ] || dir=/persist/etc
     sudo sh -c "umask 077; getent shadow $USER | cut -d: -f2 > $dir/hub-password"
 
+# weekly review note: time, done tasks, commits, open projects
+review:
+    @bin/review
+
+# empty the capture inbox line by line: task, note, delete or keep
+triage:
+    @bin/triage
+
+# a notification later: hub remind 25m "call back", hub remind 17:30 "leave"
+remind *args:
+    @bin/remind {{ args }}
+
+# BIOS and device firmware updates (feature firmware)
+firmware:
+    fwupdmgr refresh --force
+    fwupdmgr update
+
+# what is using the disk: your home, interactively
+disk:
+    @ncdu -x ~
+
 # what needs attention (failed units, disk, snapshots, backups, updates)
 health:
     @bin/health

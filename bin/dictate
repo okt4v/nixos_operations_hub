@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# dictate — type by speaking. Run once (Super+F11) to start listening, again
+# to stop: what you said is typed into the focused window. Local (whisper),
+# needs the feature `minutes`. Uses the model `minutes` downloads; set
+# MINUTES_MODEL=base for faster, rougher results.
+set -eu
+command -v whisper-cli >/dev/null || { echo "dictate: the feature is off — hub feature on minutes, then hub switch" >&2; exit 1; }
+run=${XDG_RUNTIME_DIR:-/tmp}/dictate
+model=${XDG_DATA_HOME:-$HOME/.local/share}/whisper/ggml-${MINUTES_MODEL:-small}.bin
+
+if [ ! -f "$run.pid" ]; then
+  if [ ! -f "$model" ]; then
+    notify-send -t 8000 "dictate" "downloading the speech model once…" || true
+    mkdir -p "$(dirname "$model")"
+    curl -fsL -o "$model.part" "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/$(basename "$model")"
+    mv "$model.part" "$model"
+  fi
+  pw-record --rate 16000 --channels 1 "$run.wav" &
+  echo $! >"$run.pid"
+  notify-send -t 1500 "dictate" "listening…" || true
+  exit 0
+fi
+
+kill -INT "$(cat "$run.pid")" 2>/dev/null || true
+rm -f "$run.pid"
+sleep 0.5
+text=$(whisper-cli -m "$model" -l auto -np -nt -f "$run.wav" 2>/dev/null | tr '\n' ' ' | sed 's/^ *//; s/ *$//')
+rm -f "$run.wav"
+[ -n "$text" ] || { notify-send -t 2000 "dictate" "heard nothing" || true; exit 0; }
+wtype -- "$text"
