@@ -20,15 +20,13 @@ hub iso                                   # builds result/iso/*.iso
 sudo dd if=result/iso/<name>.iso of=/dev/sdX bs=4M status=progress oflag=sync
 ```
 
-Boot it. Wifi: `nmtui`. The stick carries this flake at `/etc/hub` and accepts your SSH key.
+Boot it. The stick carries this flake at `/etc/hub` and accepts your SSH key.
 
 ## 2a. Whole disk (default)
 
-**Wipes the disk.** You are asked for the disk passphrase.
-
-```sh
-sudo disko-install --flake /etc/hub#dev-hub --disk main /dev/nvme0n1
-```
+**Wipes the disk.** The installer starts by itself on boot (run it again with `hub-install`):
+it opens `nmtui` if there is no internet, then asks for the host, the disk, a typed `yes`
+and the disk passphrase, installs, and reboots. Ctrl+C drops to a shell.
 
 Or from another machine on the network: `hub install dev-hub <ip>`.
 

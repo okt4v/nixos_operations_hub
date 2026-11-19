@@ -223,7 +223,7 @@ path does not exist, `mkcd`, `x <archive>` extracts. Aliases: `g` git, `lg` lazy
   (a name and a URL per line). One that is down shows in the bar's health indicator and in the
   `services` widget.
 - `hp` picks a machine from the tailnet or SSH config and opens SSH with a resumed tmux session.
-- `hub deploy <host>` rebuilds a remote host from here; `hub install <host> <ip>` installs one. `hub iso` builds the installer.
+- `hub deploy <host>` rebuilds a remote host from here; `hub install <host> <ip>` installs one. `hub iso` builds the installer USB, which starts `hub-install` on boot.
 - `hub net` shows wifi, address, VPN and tailnet state.
 - `ask <question>` queries the local model (needs `hub.ai.enable`); it reads stdin too: `git diff | ask "review this"`.
 
