@@ -16,9 +16,12 @@ Copy to an external drive **and open the copies on another device**:
 ## 1. Installer USB
 
 ```sh
-hub iso                                   # builds result/iso/*.iso
-sudo dd if=result/iso/<name>.iso of=/dev/sdX bs=4M status=progress oflag=sync
+hub iso                                   # builds iso/*.iso
+sudo dd if=iso/<name>.iso of=/dev/sdX bs=4M status=progress oflag=sync
 ```
+
+On a machine without NixOS (another Linux, macOS), run `./bin/build-iso` from the repo instead.
+It uses Nix if installed (Linux), otherwise Docker; on Apple Silicon the Docker build is emulated and slow.
 
 Boot it. The stick carries this flake at `/etc/hub` and accepts your SSH key.
 

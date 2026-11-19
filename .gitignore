@@ -5,3 +5,4 @@ result-*
 # written by nwg-displays, not used
 config/sway/outputs
 config/sway/workspaces
+/iso/

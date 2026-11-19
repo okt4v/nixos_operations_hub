@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# build-iso — build the installer ISO into iso/, on any machine.
+# Uses Nix on Linux if it is installed, otherwise Docker (any OS, also macOS).
+# Needs no `hub` and no NixOS: ./bin/build-iso from the repo root.
+set -euo pipefail
+repo=$(dirname "$(dirname "$(readlink -f "$0")")")
+cd "$repo"
+mkdir -p iso
+attr=".#nixosConfigurations.iso.config.system.build.isoImage"
+nixopts=(--extra-experimental-features "nix-command flakes")
+
+if [ "$(uname)" = Linux ] && command -v nix >/dev/null; then
+  out=$(nix "${nixopts[@]}" build "$attr" --no-link --print-out-paths)
+  cp -fL "$out"/iso/*.iso iso/
+elif command -v docker >/dev/null; then
+  # ponytail: on ARM (Apple Silicon) this runs x86 emulated, slow (an hour+); a Linux x86 machine is fast
+  docker run --rm --platform linux/amd64 -v "$repo":/src -w /src nixos/nix sh -c "
+    git config --global --add safe.directory /src &&
+    out=\$(nix --extra-experimental-features 'nix-command flakes' --option sandbox false --option filter-syscalls false \
+      build '$attr' --no-link --print-out-paths) &&
+    cp -fL \$out/iso/*.iso /src/iso/ && chown -R $(id -u):$(id -g) /src/iso"
+else
+  echo "Needs Nix (https://nixos.org/download, Linux) or Docker." >&2
+  exit 1
+fi
+
+chmod u+w iso/*.iso
+ls -lh iso/*.iso
+echo "Write it to a stick: sudo dd if=iso/<name>.iso of=/dev/sdX bs=4M status=progress oflag=sync"
+echo "(macOS: diskutil list, then of=/dev/rdiskN bs=4m)"

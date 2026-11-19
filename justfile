@@ -184,10 +184,9 @@ agent name *cmd:
 svc action="up":
     @cd "{{ invocation_directory() }}" && {{ justfile_directory() }}/bin/svc {{ action }}
 
-# build the installer USB image (result/iso/*.iso)
+# build the installer USB image into iso/ (bin/build-iso, works on non-NixOS too)
 iso:
-    nix build .#nixosConfigurations.iso.config.system.build.isoImage
-    @ls -lh result/iso/
+    @bin/build-iso
 
 # install a host onto a machine booted from the hub ISO: hub install <host> <ip>
 install name ip:
