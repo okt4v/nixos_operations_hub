@@ -1,4 +1,6 @@
-# NixOS operations hub
+# ophub NixOS
+
+ophub = operations hub. Display name "ophub NixOS" (`system.nixos.distroName`, set in `flake.nix`); lowercase `ophub` in file names. The command stays `hub`.
 
 Flake for the user's machines. Lives at `~/tec/nix` on an installed host (`hub.dir`).
 

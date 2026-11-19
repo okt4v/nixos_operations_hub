@@ -57,7 +57,11 @@
           specialArgs = { inherit inputs; };
           modules = [
             ./hosts/${name}/default.nix
-            { networking.hostName = name; }
+            {
+              networking.hostName = name;
+              # boot menu, os-release, fastfetch; the ID stays "nixos" for tools that check it
+              system.nixos.distroName = "ophub NixOS";
+            }
           ];
         }
       );

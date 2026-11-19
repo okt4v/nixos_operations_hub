@@ -1,9 +1,10 @@
-# Installer USB: `hub iso`, write result/iso/*.iso to a stick, boot it.
+# Installer USB: `hub iso` (or bin/build-iso), write iso/*.iso to a stick, boot it.
 # The installer (`hub-install`) starts on its own on the first console: it
 # asks for wifi, host, disk and the disk passphrase. It carries this flake at
 # /etc/hub and accepts your SSH key as root, so instead you can also run
 # from another machine:  hub install <host> <ip>
 {
+  config,
   inputs,
   lib,
   modulesPath,
@@ -24,6 +25,7 @@ let
     ];
     text = ''
       [ "$(id -u)" = 0 ] || exec sudo "$0" "$@"
+      echo "ophub NixOS installer"
 
       until curl -fsI https://cache.nixos.org >/dev/null; do
         echo "No internet. Opening nmtui: activate a connection, then quit."
@@ -35,10 +37,10 @@ let
       mapfile -t hosts < <(find /etc/hub/hosts -mindepth 1 -maxdepth 1 -type d ! -name iso -printf '%f\n' | sort)
       select host in "''${hosts[@]}"; do [ -n "$host" ] && break; done
 
-      # every whole disk except the stick we booted from
+      # every whole disk except the stick we booted from (no floppy, loop, cdrom, zram)
       boot=$(lsblk -no PKNAME "$(findmnt -no SOURCE /iso)" 2>/dev/null || true)
       echo; echo "Disk to install on:"
-      mapfile -t disks < <(lsblk -dpno NAME,SIZE,MODEL -e 7,11 | grep -v "^/dev/$boot " || true)
+      mapfile -t disks < <(lsblk -dpno NAME,SIZE,MODEL -e 2,7,11 | grep -v -e "^/dev/zram" -e "^/dev/$boot " || true)
       select disk in "''${disks[@]}"; do [ -n "$disk" ] && break; done
       disk=''${disk%% *}
 
@@ -65,6 +67,8 @@ in
   imports = [ (modulesPath + "/installer/cd-dvd/installation-cd-minimal.nix") ];
 
   nixpkgs.hostPlatform = "x86_64-linux";
+  image.baseName = lib.mkForce "ophub-nixos-${config.system.nixos.release}-x86_64";
+  isoImage.volumeID = "ophub-${config.system.nixos.release}";
   nix.settings.experimental-features = [
     "nix-command"
     "flakes"
@@ -87,5 +91,5 @@ in
   environment.loginShellInit = ''
     [ "$(tty)" = /dev/tty1 ] && [ "$USER" = nixos ] && hub-install
   '';
-  services.getty.helpLine = lib.mkForce "Install: hub-install   wifi: nmtui";
+  services.getty.helpLine = lib.mkForce "ophub NixOS installer. Install: hub-install   wifi: nmtui";
 }

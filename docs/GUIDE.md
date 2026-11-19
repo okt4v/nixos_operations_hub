@@ -1,6 +1,6 @@
-# User guide
+# ophub NixOS: user guide
 
-How to use a machine installed from this repo. Installing is in [INSTALL.md](INSTALL.md).
+How to use an ophub NixOS machine (ophub = operations hub) installed from this repo. Installing is in [INSTALL.md](INSTALL.md).
 
 `Super` is the Windows key. Every key binding on the machine is searchable with `Alt+Ctrl+K`
 (or `hub keys`); that list is read from the live config, so it is the reference. This guide

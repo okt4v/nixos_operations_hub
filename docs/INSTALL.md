@@ -1,4 +1,4 @@
-# Installing a host
+# Installing ophub NixOS
 
 Everything below uses `dev-hub` and `/dev/nvme0n1`; substitute your host and disk.
 
