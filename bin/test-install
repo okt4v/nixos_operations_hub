@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# test-install — install a small test host with the real installer in a VM,
+# boot it, unlock the disk, check it came up. About 10 minutes; needs KVM.
+#   bin/test-install    (hub test-install; also runs in CI)
+set -euo pipefail
+repo=$(dirname "$(dirname "$(readlink -f "$0")")")
+tmp=$(mktemp -d)
+trap 'kill "$(cat "$tmp/qemu.pid" 2>/dev/null)" 2>/dev/null || true; rm -rf "$tmp"' EXIT
+cd "$tmp"
+tool() { nix build --no-link --print-out-paths "nixpkgs#$1"; }
+expect=$(tool expect)/bin/expect
+socat=$(tool socat)/bin/socat
+ovmf=$(tool OVMF.fd)/FV
+ssh-keygen -q -t ed25519 -N "" -f key
+cp "$ovmf/OVMF_VARS.fd" vars.fd && chmod u+w vars.fd
+qemu-img create -q -f qcow2 disk.qcow2 30G
+
+# The real ISO plus a throwaway host `smoke` (core + disk + boot, 1.5 GB)
+# and this run's ssh key.
+echo "building the test ISO"
+iso=$(nix build --no-link --print-out-paths --impure --expr "
+  let
+    f = builtins.getFlake \"git+file://$repo\";
+    pkgs = f.nixosConfigurations.iso.pkgs;
+    key = \"$(cat key.pub)\";
+    smoke = pkgs.writeText \"smoke.nix\" ''
+      { modulesPath, ... }: {
+        imports = [ (modulesPath + \"/profiles/qemu-guest.nix\") ../../modules/core.nix ../../modules/disk.nix ../../modules/boot.nix ];
+        nixpkgs.hostPlatform = \"x86_64-linux\";
+        hub.disk = \"/dev/nvme0n1\";
+        services.openssh.enable = true;
+        boot.kernelParams = [ \"console=ttyS0\" ]; # the passphrase prompt, for the test to answer
+        users.users.root.openssh.authorizedKeys.keys = [ \"\${key}\" ];
+      }
+    '';
+    src = pkgs.runCommand \"hub-test-src\" { } ''
+      cp -r \${f} \$out && chmod -R u+w \$out
+      mkdir \$out/hosts/smoke && cp \${smoke} \$out/hosts/smoke/default.nix
+    '';
+  in
+  (f.nixosConfigurations.iso.extendModules {
+    modules = [ ({ lib, ... }: {
+      environment.etc.\"hub\".source = lib.mkForce src;
+      users.users.root.openssh.authorizedKeys.keys = [ key ];
+    }) ];
+  }).config.system.build.isoImage")
+iso=$(echo "$iso"/iso/*.iso)
+
+vm() { # vm <extra qemu args...>
+  qemu-system-x86_64 -enable-kvm -cpu host -smp 4 -m 6G \
+    -drive if=pflash,format=raw,readonly=on,file="$ovmf/OVMF_CODE.fd" \
+    -drive if=pflash,format=raw,file=vars.fd -drive file=disk.qcow2,if=virtio \
+    -nic user,model=virtio,hostfwd=tcp::2224-:22 -display none -vga std \
+    -serial unix:"$tmp/serial.sock",server,nowait -daemonize -pidfile "$tmp/qemu.pid" "$@"
+}
+s() { ssh -i key -p 2224 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=3 "$@"; }
+up() { for _ in $(seq 60); do s root@localhost true 2>/dev/null && return; "$@"; sleep 5; done; echo "FAIL: no ssh" >&2; exit 1; }
+
+echo "booting the ISO"
+vm -cdrom "$iso" -boot order=d
+up true
+
+echo "running hub-install (log: install.log)"
+cat > install.exp <<'EXP'
+set timeout 3600
+spawn ssh -tt -i key -p 2224 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@localhost hub-install
+expect -re {(\d+)\) smoke} { set n $expect_out(1,string) }
+expect "#? " { send "$n\r" }
+expect "Disk to install on"
+expect -re {(\d+)\) /dev/vda} { set n $expect_out(1,string) }
+expect "#? " { send "$n\r" }
+expect "Type yes" { send "yes\r" }
+expect {
+  -re "(?i)(passphrase|verify|password).*: ?$" { send "test\r"; exp_continue }
+  "Enter to reboot" { exit 0 }
+  eof { exit 1 }
+  timeout { exit 2 }
+}
+EXP
+"$expect" install.exp > install.log 2>&1 || { tail -30 install.log; echo "FAIL: installer" >&2; exit 1; }
+kill "$(cat qemu.pid)"; sleep 2
+
+echo "booting the installed disk"
+vm
+# answer the disk passphrase prompt on the serial console
+cat > unlock.exp <<EXP
+set timeout 300
+spawn $socat - unix-connect:$tmp/serial.sock
+expect -re "(?i)passphrase" { send "test\r" }
+expect "login:"
+EXP
+"$expect" unlock.exp > unlock.log 2>&1 || { tail -20 unlock.log; echo "FAIL: disk unlock" >&2; exit 1; }
+up true
+# shellcheck disable=SC2016 # runs in the VM
+s root@localhost 'grep -q "ophub NixOS" /etc/os-release && [ "$(stat -c %U /home/oktav/tec/nix/flake.nix)" = oktav ]' \
+  || { echo "FAIL: installed system" >&2; exit 1; }
+echo "PASS: installed, booted, unlocked, repo at hub.dir"

@@ -18,6 +18,8 @@ in
     "kanshi".source = live "config/kanshi";
     "eww".source = live "config/eww";
     "btop/btop.conf".source = live "config/btop/btop.conf";
+    "fastfetch/logo.txt".source = live "config/fastfetch/logo.txt";
+    "fastfetch/config.jsonc".source = config.lib.file.mkOutOfStoreSymlink "${pal}/fastfetch.jsonc";
     "mako/config".source = config.lib.file.mkOutOfStoreSymlink "${pal}/mako";
 
     "swappy/config".text = ''

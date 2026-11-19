@@ -188,6 +188,14 @@ svc action="up":
 iso:
     @bin/build-iso
 
+# write the installer ISO to a USB stick (only USB disks are offered)
+flash:
+    @bin/flash
+
+# install a test host with the real installer in a VM and boot it (~10 min, KVM)
+test-install:
+    @bin/test-install
+
 # install a host onto a machine booted from the hub ISO: hub install <host> <ip>
 install name ip:
     nix run github:nix-community/nixos-anywhere -- --flake .#{{ name }} root@{{ ip }}

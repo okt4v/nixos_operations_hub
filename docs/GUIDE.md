@@ -10,7 +10,7 @@ only names the bindings you need daily.
 
 | Command | What it does |
 |---|---|
-| `hub` | Fuzzy menu of every operation, with a preview of what each one runs. `hub <recipe>` runs one directly; `h` is an alias. |
+| `hub` | Fuzzy menu of every operation, with a preview of what each one runs. `hub <recipe>` runs one directly; `h` and `ophub` are aliases. |
 | `pj` | Jump to a project (`Super+P`). |
 | `mode` | Switch context (`Super+O`). |
 
@@ -28,6 +28,8 @@ The repo lives at `~/tec/nix`.
 - **Everything else** (`modules/`, `home/`, `hosts/`): edit, then `hub switch`.
   `hub test` activates until the next reboot only; `hub rollback` returns to the previous generation.
 - `hub diff` shows which packages a switch would change. `hub check` evaluates all hosts and lints the scripts.
+- **CI** (GitHub Actions) runs the same check on every push. On `main` it also builds the installer ISO
+  (download it from the run's *Artifacts*) and runs `hub test-install`.
 - New files must be `git add`ed before nix sees them.
 - **Updates:** a weekly timer prepares an update on the branch `upd` and notifies you. `hub update` applies it.
 - `hub gc` deletes old generations (keeps 5). `hub search <words>` searches nixpkgs. `, <program>` runs a program once without installing it.
@@ -71,6 +73,7 @@ and the secret is in it.
 Black and amber, square corners, one monospace font. The colours are eight values in
 `config/palette/dark` (and `light`): edit the file, run `theme apply`, and every app follows.
 A new file in that folder is a new palette: `theme <name>`. `theme list` shows them.
+`fastfetch` shows the ophub logo in the accent colour.
 
 ## Desktop
 
@@ -223,7 +226,7 @@ path does not exist, `mkcd`, `x <archive>` extracts. Aliases: `g` git, `lg` lazy
   (a name and a URL per line). One that is down shows in the bar's health indicator and in the
   `services` widget.
 - `hp` picks a machine from the tailnet or SSH config and opens SSH with a resumed tmux session.
-- `hub deploy <host>` rebuilds a remote host from here; `hub install <host> <ip>` installs one. `hub iso` (or `bin/build-iso` on a machine without NixOS) builds the installer USB into `iso/`, which starts `hub-install` on boot.
+- `hub deploy <host>` rebuilds a remote host from here; `hub install <host> <ip>` installs one. `hub iso` (or `bin/build-iso` on a machine without NixOS) builds the installer into `iso/`, `hub flash` writes it to a USB stick; on boot it starts `hub-install`. `hub test-install` installs a test host with it in a VM (~10 min).
 - `hub net` shows wifi, address, VPN and tailnet state.
 - `ask <question>` queries the local model (needs `hub.ai.enable`); it reads stdin too: `git diff | ask "review this"`.
 

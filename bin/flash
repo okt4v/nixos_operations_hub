@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# flash — write the installer ISO (iso/*.iso, from `hub iso`) to a USB stick.
+# Only USB disks are offered; the stick is erased.
+set -euo pipefail
+repo=$(dirname "$(dirname "$(readlink -f "$0")")")
+iso=$(find "$repo/iso" -name '*.iso' 2>/dev/null | sort | tail -1)
+[ -n "$iso" ] || { echo "No ISO yet: run hub iso first." >&2; exit 1; }
+
+mapfile -t sticks < <(lsblk -dpno NAME,SIZE,MODEL,TRAN | awk '$NF == "usb"' | sed 's/ *usb$//')
+[ ${#sticks[@]} -gt 0 ] || { echo "No USB stick found." >&2; exit 1; }
+echo "Write $(basename "$iso") to:"
+select stick in "${sticks[@]}"; do [ -n "$stick" ] && break; done
+dev=${stick%% *}
+
+read -rp "This ERASES $stick. Type yes: " ok
+[ "$ok" = yes ] || exit 1
+sudo umount "$dev"?* 2>/dev/null || true
+sudo dd if="$iso" of="$dev" bs=4M status=progress oflag=sync
+echo "Done. Boot the machine from it; the installer starts by itself."

@@ -17,8 +17,10 @@ Copy to an external drive **and open the copies on another device**:
 
 ```sh
 hub iso                                   # builds iso/*.iso
-sudo dd if=iso/<name>.iso of=/dev/sdX bs=4M status=progress oflag=sync
+hub flash                                 # writes it to a USB stick (asks which)
 ```
+
+Or download the ISO from the latest CI run on GitHub (*Actions → ci → Artifacts*).
 
 On a machine without NixOS (another Linux, macOS), run `./bin/build-iso` from the repo instead.
 It uses Nix if installed (Linux), otherwise Docker; on Apple Silicon the Docker build is emulated and slow.
@@ -29,7 +31,11 @@ Boot it. The stick carries this flake at `/etc/hub` and accepts your SSH key.
 
 **Wipes the disk.** The installer starts by itself on boot (run it again with `hub-install`):
 it opens `nmtui` if there is no internet, then asks for the host, the disk, a typed `yes`
-and the disk passphrase, installs, and reboots. Ctrl+C drops to a shell.
+and the disk passphrase, installs, puts this repo at `~/tec/nix`, and reboots. Ctrl+C drops to a shell.
+
+**New machine:** choose *new host (this machine)* and give it a name. The installer makes
+`hosts/<name>/` as a copy of dev-hub with this machine's `hardware.nix`. After first login,
+remove the E16 quirks from its `default.nix` and commit the new folder.
 
 Or from another machine on the network: `hub install dev-hub <ip>`.
 
@@ -69,7 +75,8 @@ Disk passphrase, then you are logged in. First password is `changeme`.
 
 ```sh
 passwd
-git clone https://github.com/okt4v/nixos_operations_hub ~/tec/nix        # the path hub.dir points at; dotfiles are linked from here
+cd ~/tec/nix                               # put there by hub-install; otherwise git clone it there first
+git remote set-url origin git@github.com:okt4v/nixos_operations_hub.git   # push over ssh
 hub switch
 ```
 
@@ -112,4 +119,5 @@ The passphrase keeps working as a fallback. Do not remove it.
    (a server: `core.nix`, `disk.nix`, `secrets.nix`) and sets `hub.disk`. For a desktop, copy
    `hosts/dev-hub/` (it brings `features.nix`) and remove the E16 quirks.
 2. On the machine (booted from the hub ISO): `nixos-generate-config --no-filesystems --show-hardware-config` → `hosts/<name>/hardware.nix`.
+   (Or let the installer do steps 1–2: *new host (this machine)*.)
 3. `hub install <name> <ip>`; later `hub deploy <name>`. Try it first with `hub vm <name>`.

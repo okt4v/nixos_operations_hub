@@ -19,6 +19,7 @@ let
     name = "hub-install";
     runtimeInputs = [
       pkgs.curl
+      pkgs.git
       pkgs.util-linux
       pkgs.networkmanager
       inputs.disko.packages.x86_64-linux.disko
@@ -33,9 +34,29 @@ let
         nmtui
       done
 
+      # writable copy: the chosen disk and a new host are written into it; no
+      # .git, or nix would ignore an uncommitted new host
+      rm -rf /tmp/hub && cp -rL /etc/hub /tmp/hub && chmod -R u+w /tmp/hub && rm -rf /tmp/hub/.git
+
       echo; echo "Host to install:"
-      mapfile -t hosts < <(find /etc/hub/hosts -mindepth 1 -maxdepth 1 -type d ! -name iso -printf '%f\n' | sort)
-      select host in "''${hosts[@]}"; do [ -n "$host" ] && break; done
+      mapfile -t hosts < <(find /tmp/hub/hosts -mindepth 1 -maxdepth 1 -type d ! -name iso -printf '%f\n' | sort)
+      select host in "''${hosts[@]}" "new host (this machine)"; do [ -n "$host" ] && break; done
+
+      new=
+      if [ "$host" = "new host (this machine)" ]; then
+        new=1 host=
+        until [[ $host =~ ^[a-z][a-z0-9-]*$ ]] && [ ! -e "/tmp/hub/hosts/$host" ]; do
+          read -rp "Name for this machine (lowercase, e.g. work-laptop): " host
+        done
+        # ponytail: copies dev-hub whole, E16 quirks included; trim them after install
+        mkdir "/tmp/hub/hosts/$host"
+        cp /tmp/hub/hosts/dev-hub/{default,features}.nix "/tmp/hub/hosts/$host/"
+        {
+          echo "# $host. Filesystems come from modules/disk.nix, not from here."
+          nixos-generate-config --no-filesystems --show-hardware-config 2>/dev/null
+        } > "/tmp/hub/hosts/$host/hardware.nix"
+        echo "New host $host: a copy of dev-hub with this machine's hardware.nix."
+      fi
 
       # every whole disk except the stick we booted from (no floppy, loop, cdrom, zram)
       boot=$(lsblk -no PKNAME "$(findmnt -no SOURCE /iso)" 2>/dev/null || true)
@@ -48,16 +69,27 @@ let
       read -rp "Type yes to continue: " ok
       [ "$ok" = yes ] || exit 1
 
-      # writable copy with the chosen disk; the installed system mounts by
-      # partition label, so hub.disk only matters here
-      rm -rf /tmp/hub && cp -rL /etc/hub /tmp/hub && chmod -R u+w /tmp/hub
+      # the installed system mounts by partition label, so hub.disk only matters here
       sed -i "s|hub.disk = \".*\";|hub.disk = \"$disk\";|" "/tmp/hub/hosts/$host/default.nix"
 
       echo "Choose the disk passphrase when asked."
       disko --mode destroy,format,mount --yes-wipe-all-disks --flake "/tmp/hub#$host"
       nixos-install --flake "/tmp/hub#$host" --no-root-passwd --no-channel-copy
 
+      # the repo at hub.dir, so dotfiles resolve and `hub switch` works at first login
+      dir=$(nix eval --raw "/tmp/hub#nixosConfigurations.$host.config.hub.dir")
+      mkdir -p "/mnt$dir"
+      if git clone -q https://github.com/okt4v/nixos_operations_hub "/mnt$dir"; then
+        cp -r "/tmp/hub/hosts/$host" "/mnt$dir/hosts/" # new host or changed disk: shows in git status
+      else
+        cp -r /tmp/hub/. "/mnt$dir/"
+        echo "No git clone (offline?): $dir is a plain copy, connect it with git later."
+      fi
+      nixos-enter --root /mnt -c "chown -R oktav:users /home/oktav"
+      umount -R /mnt # writes everything out: safe to power off from here
+
       echo; echo "Done. Remove the stick; first login password is changeme."
+      [ -z "$new" ] || echo "Commit hosts/$host in $dir after first login."
       read -rp "Enter to reboot" _
       reboot
     '';

@@ -5,8 +5,8 @@
 #   theme apply    re-read the current palette after editing its file
 #   theme list     palettes that exist
 # A palette is a file of eight colours in config/palette/; add a file to add
-# one. From it the colour files for sway, waybar, kitty, tmux, fuzzel, mako
-# and eww are written to ~/.config/pal/<name>/. No rebuild.
+# one. From it the colour files for sway, waybar, kitty, tmux, fuzzel, mako,
+# fastfetch and eww are written to ~/.config/pal/<name>/. No rebuild.
 set -eu
 
 hub=$(dirname "$(dirname "$(readlink -f "$0")")")
@@ -42,6 +42,14 @@ selection_foreground #$fg
 active_border_color #$acc
 inactive_border_color #$sel
 url_color #$acc
+EOT
+  rgb() { printf '38;2;%d;%d;%d' "0x${1:0:2}" "0x${1:2:2}" "0x${1:4:2}"; }
+  cat >"$out/fastfetch.jsonc" <<EOT
+{
+  "logo": { "source": "~/.config/fastfetch/logo.txt", "color": { "1": "$(rgb "$acc")" } },
+  "display": { "color": { "keys": "$(rgb "$acc")", "title": "$(rgb "$acc")" } },
+  "modules": ["title", "separator", "os", "host", "kernel", "uptime", "packages", "shell", "wm", "terminal", "cpu", "gpu", "memory", "disk", "battery"]
+}
 EOT
   cat >"$out/tmux.conf" <<EOT
 set -g status-style "bg=#$bg,fg=#$fg"
