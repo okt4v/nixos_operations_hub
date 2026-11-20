@@ -22,6 +22,8 @@ let
       pkgs.git
       pkgs.util-linux
       pkgs.networkmanager
+      pkgs.gptfdisk
+      pkgs.openssh
       inputs.disko.packages.x86_64-linux.disko
     ];
     text = ''
@@ -48,14 +50,24 @@ let
         until [[ $host =~ ^[a-z][a-z0-9-]*$ ]] && [ ! -e "/tmp/hub/hosts/$host" ]; do
           read -rp "Name for this machine (lowercase, e.g. work-laptop): " host
         done
-        # ponytail: copies dev-hub whole, E16 quirks included; trim them after install
         mkdir "/tmp/hub/hosts/$host"
-        cp /tmp/hub/hosts/dev-hub/{default,features}.nix "/tmp/hub/hosts/$host/"
+        cp /tmp/hub/hosts/dev-hub/features.nix "/tmp/hub/hosts/$host/"
+        cat > "/tmp/hub/hosts/$host/default.nix" <<EOF
+      # $host. The shared setup is modules/workstation.nix; this machine's quirks go here.
+      {
+        imports = [
+          ./hardware.nix
+          (import ../../modules/workstation.nix (import ./features.nix))
+        ];
+
+        hub.disk = "/dev/sda";
+      }
+      EOF
         {
           echo "# $host. Filesystems come from modules/disk.nix, not from here."
           nixos-generate-config --no-filesystems --show-hardware-config 2>/dev/null
         } > "/tmp/hub/hosts/$host/hardware.nix"
-        echo "New host $host: a copy of dev-hub with this machine's hardware.nix."
+        echo "New host $host: the shared workstation setup, dev-hub's feature flags, this machine's hardware.nix."
       fi
 
       # every whole disk except the stick we booted from (no floppy, loop, cdrom, zram)
@@ -65,15 +77,39 @@ let
       select disk in "''${disks[@]}"; do [ -n "$disk" ] && break; done
       disk=''${disk%% *}
 
-      echo; echo "This ERASES everything on $disk and installs $host."
+      echo; echo "How:"
+      select how in "whole disk (erases everything on it)" "free space next to Windows (keeps it)"; do [ -n "$how" ] && break; done
+      esp=
+      if [[ $how == free* ]]; then
+        esp=$(lsblk -lpno NAME,PARTTYPE "$disk" | awk '$2 == "c12a7328-f81f-11d2-ba4b-00a0c93ec93b" { print $1; exit }')
+        [ -n "$esp" ] || { echo "No EFI partition on $disk: is Windows installed there, in UEFI mode?"; exit 1; }
+        [ ! -e /dev/disk/by-partlabel/nixos-crypt ] || { echo "A nixos-crypt partition exists already: delete the old Linux partitions first."; exit 1; }
+        echo; echo "Keeps every partition on $disk and installs $host into its largest free space"
+        echo "(shrink Windows first, in Windows' Disk Management)."
+      else
+        echo; echo "This ERASES everything on $disk and installs $host."
+      fi
       read -rp "Type yes to continue: " ok
       [ "$ok" = yes ] || exit 1
 
       # the installed system mounts by partition label, so hub.disk only matters here
-      sed -i "s|hub.disk = \".*\";|hub.disk = \"$disk\";|" "/tmp/hub/hosts/$host/default.nix"
+      f=/tmp/hub/hosts/$host/default.nix
+      sed -i -e "s|hub.disk = \".*\";|hub.disk = \"$disk\";|" -e '/hub.dualBoot = /d' "$f"
 
       echo "Choose the disk passphrase when asked."
-      disko --mode destroy,format,mount --yes-wipe-all-disks --flake "/tmp/hub#$host"
+      if [ -n "$esp" ]; then
+        sed -i "/hub.disk = /a\\  hub.dualBoot = { enable = true; esp = \"/dev/disk/by-uuid/$(blkid -s UUID -o value "$esp")\"; };" "$f"
+        # XBOOTLDR for kernels (Windows' ESP is ~100M) + the encrypted rest
+        sgdisk -n 0:0:+1G -t 0:ea00 -c 0:nixos-boot -n 0:0:0 -t 0:8309 -c 0:nixos-crypt "$disk"
+        udevadm settle
+        disko --mode format,mount --flake "/tmp/hub#$host"
+        mkdir -p /mnt/efi && mount "$esp" /mnt/efi
+      else
+        disko --mode destroy,format,mount --yes-wipe-all-disks --flake "/tmp/hub#$host"
+      fi
+      # host key for remote unlock (modules/remote-unlock.nix); unused otherwise
+      mkdir -p /mnt/var/lib/initrd-ssh
+      ssh-keygen -q -t ed25519 -N "" -f /mnt/var/lib/initrd-ssh/ssh_host_ed25519_key
       nixos-install --flake "/tmp/hub#$host" --no-root-passwd --no-channel-copy
 
       # the repo at hub.dir, so dotfiles resolve and `hub switch` works at first login

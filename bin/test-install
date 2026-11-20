@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
-# test-install — install a small test host with the real installer in a VM,
-# boot it, unlock the disk, check it came up. About 10 minutes; needs KVM.
-#   bin/test-install    (hub test-install; also runs in CI)
+# test-install [dual] — install a small test host with the real installer in a
+# VM, boot it, unlock the disk over SSH (remote unlock), check it came up.
+# `dual` first puts a fake Windows (EFI + data partition) on the disk and
+# installs next to it. About 10 minutes each; needs KVM.
+#   bin/test-install [dual]    (hub test-install; CI runs both)
 set -euo pipefail
+mode=${1:-whole}
 repo=$(dirname "$(dirname "$(readlink -f "$0")")")
 tmp=$(mktemp -d)
 trap 'kill "$(cat "$tmp/qemu.pid" 2>/dev/null)" 2>/dev/null || true; rm -rf "$tmp"' EXIT
 cd "$tmp"
 tool() { nix build --no-link --print-out-paths "nixpkgs#$1"; }
 expect=$(tool expect)/bin/expect
-socat=$(tool socat)/bin/socat
 ovmf=$(tool OVMF.fd)/FV
 ssh-keygen -q -t ed25519 -N "" -f key
 cp "$ovmf/OVMF_VARS.fd" vars.fd && chmod u+w vars.fd
 qemu-img create -q -f qcow2 disk.qcow2 30G
 
-# The real ISO plus a throwaway host `smoke` (core + disk + boot, 1.5 GB)
-# and this run's ssh key.
+# The real ISO plus a throwaway host `smoke` (core + disk + boot + remote
+# unlock, 1.5 GB) and this run's ssh key.
 echo "building the test ISO"
 iso=$(nix build --no-link --print-out-paths --impure --expr "
   let
@@ -25,12 +27,12 @@ iso=$(nix build --no-link --print-out-paths --impure --expr "
     key = \"$(cat key.pub)\";
     smoke = pkgs.writeText \"smoke.nix\" ''
       { modulesPath, ... }: {
-        imports = [ (modulesPath + \"/profiles/qemu-guest.nix\") ../../modules/core.nix ../../modules/disk.nix ../../modules/boot.nix ];
+        imports = [ (modulesPath + \"/profiles/qemu-guest.nix\") ../../modules/core.nix ../../modules/disk.nix ../../modules/boot.nix ../../modules/remote-unlock.nix ];
         nixpkgs.hostPlatform = \"x86_64-linux\";
         hub.disk = \"/dev/nvme0n1\";
         services.openssh.enable = true;
-        boot.kernelParams = [ \"console=ttyS0\" ]; # the passphrase prompt, for the test to answer
         users.users.root.openssh.authorizedKeys.keys = [ \"\${key}\" ];
+        boot.initrd.network.ssh.authorizedKeys = [ \"\${key}\" ];
       }
     '';
     src = pkgs.runCommand \"hub-test-src\" { } ''
@@ -50,28 +52,40 @@ vm() { # vm <extra qemu args...>
   qemu-system-x86_64 -enable-kvm -cpu host -smp 4 -m 6G \
     -drive if=pflash,format=raw,readonly=on,file="$ovmf/OVMF_CODE.fd" \
     -drive if=pflash,format=raw,file=vars.fd -drive file=disk.qcow2,if=virtio \
-    -nic user,model=virtio,hostfwd=tcp::2224-:22 -display none -vga std \
-    -serial unix:"$tmp/serial.sock",server,nowait -daemonize -pidfile "$tmp/qemu.pid" "$@"
+    -nic user,model=virtio,hostfwd=tcp::2224-:22,hostfwd=tcp::2225-:2222 \
+    -display none -vga std -daemonize -pidfile "$tmp/qemu.pid" "$@"
 }
-s() { ssh -i key -p 2224 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=3 "$@"; }
-up() { for _ in $(seq 60); do s root@localhost true 2>/dev/null && return; "$@"; sleep 5; done; echo "FAIL: no ssh" >&2; exit 1; }
+opts=(-i key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=3)
+s() { ssh "${opts[@]}" -p 2224 root@localhost "$@"; }
+up() { for _ in $(seq 60); do ssh "${opts[@]}" -p "$1" root@localhost true </dev/null 2>/dev/null && return; sleep 5; done; echo "FAIL: no ssh on $1" >&2; exit 1; }
 
 echo "booting the ISO"
 vm -cdrom "$iso" -boot order=d
-up true
+up 2224
 
-echo "running hub-install (log: install.log)"
-cat > install.exp <<'EXP'
+how=whole
+if [ "$mode" = dual ]; then
+  how=free
+  echo "making a fake Windows: EFI partition with a marker file, a 5G data partition"
+  s 'sgdisk -n 0:0:+100M -t 0:ef00 -n 0:0:+5G -t 0:0700 /dev/vda && udevadm settle &&
+     mkfs.vfat /dev/vda1 >/dev/null && mount /dev/vda1 /mnt && mkdir -p /mnt/EFI/Microsoft &&
+     touch /mnt/EFI/Microsoft/windows && umount /mnt'
+fi
+
+echo "running hub-install, $mode (log: install.log)"
+cat > install.exp <<EXP
 set timeout 3600
-spawn ssh -tt -i key -p 2224 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@localhost hub-install
-expect -re {(\d+)\) smoke} { set n $expect_out(1,string) }
-expect "#? " { send "$n\r" }
+spawn ssh ${opts[*]} -tt -p 2224 root@localhost hub-install
+expect -re {(\d+)\) smoke} { set n \$expect_out(1,string) }
+expect "#? " { send "\$n\r" }
 expect "Disk to install on"
-expect -re {(\d+)\) /dev/vda} { set n $expect_out(1,string) }
-expect "#? " { send "$n\r" }
+expect -re {(\d+)\) /dev/vda} { set n \$expect_out(1,string) }
+expect "#? " { send "\$n\r" }
+expect -re {(\d+)\) $how} { set n \$expect_out(1,string) }
+expect "#? " { send "\$n\r" }
 expect "Type yes" { send "yes\r" }
 expect {
-  -re "(?i)(passphrase|verify|password).*: ?$" { send "test\r"; exp_continue }
+  -re "(?i)(passphrase|verify|password).*: ?\$" { send "test\r"; exp_continue }
   "Enter to reboot" { exit 0 }
   eof { exit 1 }
   timeout { exit 2 }
@@ -80,18 +94,30 @@ EXP
 "$expect" install.exp > install.log 2>&1 || { tail -30 install.log; echo "FAIL: installer" >&2; exit 1; }
 kill "$(cat qemu.pid)"; sleep 2
 
-echo "booting the installed disk"
+echo "booting the installed disk, unlocking over SSH"
 vm
-# answer the disk passphrase prompt on the serial console
 cat > unlock.exp <<EXP
-set timeout 300
-spawn $socat - unix-connect:$tmp/serial.sock
-expect -re "(?i)passphrase" { send "test\r" }
-expect "login:"
+set timeout 60
+spawn ssh ${opts[*]} -tt -p 2225 root@localhost
+expect {
+  -re "(?i)passphrase" { send "test\r" }
+  eof { exit 1 }
+  timeout { exit 2 }
+}
+expect eof
 EXP
-"$expect" unlock.exp > unlock.log 2>&1 || { tail -20 unlock.log; echo "FAIL: disk unlock" >&2; exit 1; }
-up true
+# the initrd's ssh logs straight into the passphrase prompt; retry until it is up
+ok=
+for _ in $(seq 40); do "$expect" unlock.exp > unlock.log 2>&1 && { ok=1; break; }; sleep 5; done
+[ -n "$ok" ] || { tail -20 unlock.log; echo "FAIL: remote unlock" >&2; exit 1; }
+up 2224
 # shellcheck disable=SC2016 # runs in the VM
-s root@localhost 'grep -q "ophub NixOS" /etc/os-release && [ "$(stat -c %U /home/oktav/tec/nix/flake.nix)" = oktav ]' \
+s 'grep -q "ophub NixOS" /etc/os-release && [ "$(stat -c %U /home/oktav/tec/nix/flake.nix)" = oktav ]' \
   || { echo "FAIL: installed system" >&2; exit 1; }
-echo "PASS: installed, booted, unlocked, repo at hub.dir"
+if [ "$mode" = dual ]; then
+  # shellcheck disable=SC2016 # runs in the VM
+  s '[ -f /efi/EFI/Microsoft/windows ] && [ "$(lsblk -no PARTTYPE /dev/vda2)" = ebd0a0a2-b9e5-4433-87c0-68b6b72699c7 ] &&
+     findmnt -no SOURCE /boot | grep -q vda3 && ls /boot/EFI/nixos >/dev/null' \
+    || { echo "FAIL: dual boot layout" >&2; exit 1; }
+fi
+echo "PASS ($mode): installed, booted, unlocked over SSH, repo at hub.dir"

@@ -41,33 +41,15 @@ Or from another machine on the network: `hub install dev-hub <ip>`.
 
 ## 2b. Dual boot (keep Windows)
 
-disko is not used. Shrink Windows first, then in the free space:
+1. In Windows: *Disk Management → Shrink volume* to free at least 50 GB. Turn off BitLocker
+   first (or have its recovery key) and turn off *Fast Startup*.
+2. Boot the stick, choose the host and the disk, then **free space next to Windows**.
 
-```sh
-P=/dev/nvme0n1pN                           # the new, empty Linux partition
-cryptsetup luksFormat $P && cryptsetup open $P crypt
-mkfs.btrfs -L nixos /dev/mapper/crypt
-mount /dev/mapper/crypt /mnt
-for s in @ @home @nix @log @snapshots; do btrfs subvolume create /mnt/$s; done
-umount /mnt
-o=compress=zstd,noatime
-mount -o $o,subvol=@ /dev/mapper/crypt /mnt
-mkdir -p /mnt/{home,nix,var/log,boot}
-mount -o $o,subvol=@home /dev/mapper/crypt /mnt/home
-mkdir -p /mnt/home/.snapshots
-mount -o $o,subvol=@snapshots /dev/mapper/crypt /mnt/home/.snapshots
-mount -o $o,subvol=@nix /dev/mapper/crypt /mnt/nix
-mount -o $o,subvol=@log /dev/mapper/crypt /mnt/var/log
-mount /dev/nvme0n1p1 /mnt/boot              # the existing EFI partition
-```
-
-In `hosts/dev-hub/default.nix` replace the `../../modules/disk.nix` import and `hub.disk` with the
-filesystems that `nixos-generate-config --root /mnt --show-hardware-config` prints, plus
-`boot.initrd.luks.devices.crypt.device = "/dev/disk/by-uuid/<uuid of $P>";`, then:
-
-```sh
-nixos-install --flake /etc/hub#dev-hub
-```
+The installer adds two partitions in the largest free space: `nixos-boot` (1 GB, holds the
+kernels, since Windows' own EFI partition is usually only 100 MB) and the encrypted `nixos-crypt`.
+It sets `hub.dualBoot` in the host file; Windows' EFI partition is mounted at `/efi`, never
+formatted. Windows shows up in the boot menu by itself. (Secure Boot via lanzaboote is not set up
+for this layout.)
 
 ## 3. First boot
 
@@ -113,11 +95,18 @@ exists, `git commit` fails because commits are signed.
 
 The passphrase keeps working as a fallback. Do not remove it.
 
+## 6. Remote unlock (optional, machines on a cable)
+
+`hub feature on remoteUnlock`, `hub switch`. At boot, `ssh -p 2222 root@<machine>` asks for the
+disk passphrase. The installer already created the boot-time host key; on a machine installed
+before, `hub doctor` prints the command. Wifi is not up that early.
+
 ## Adding a host
 
-1. `mkdir hosts/<name>` with a `default.nix` that imports the modules it needs from `modules/`
-   (a server: `core.nix`, `disk.nix`, `secrets.nix`) and sets `hub.disk`. For a desktop, copy
-   `hosts/dev-hub/` (it brings `features.nix`) and remove the E16 quirks.
-2. On the machine (booted from the hub ISO): `nixos-generate-config --no-filesystems --show-hardware-config` → `hosts/<name>/hardware.nix`.
-   (Or let the installer do steps 1–2: *new host (this machine)*.)
-3. `hub install <name> <ip>`; later `hub deploy <name>`. Try it first with `hub vm <name>`.
+1. Easiest: boot the machine from the hub ISO and choose *new host (this machine)*. It writes
+   `hosts/<name>/` (default.nix, features.nix, hardware.nix) and installs it.
+2. By hand: `mkdir hosts/<name>` with a `default.nix` that imports `./hardware.nix` and
+   `(import ../../modules/workstation.nix (import ./features.nix))` (a desktop; copy dev-hub's
+   `features.nix`), or only `core.nix`, `disk.nix`, `secrets.nix` for a server, and sets `hub.disk`.
+   `hardware.nix`: `nixos-generate-config --no-filesystems --show-hardware-config` on the machine.
+3. Or from here: `hub install <name> <ip>`; later `hub deploy <name>`. Try it first with `hub vm <name>`.

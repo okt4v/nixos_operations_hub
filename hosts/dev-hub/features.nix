@@ -26,4 +26,5 @@
   backupCloud = false; # daily restic to cloud storage; needs secrets `restic-cloud-*`
   freshRoot = false; # / is wiped at every boot; read modules/fresh-root.nix, run `hub passwd` first
   secureBoot = false; # Secure Boot + TPM unlock; see docs/INSTALL.md first
+  remoteUnlock = false; # unlock the disk over SSH at boot (ethernet); see modules/remote-unlock.nix
 }

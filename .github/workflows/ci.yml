@@ -32,6 +32,9 @@ jobs:
     needs: check
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        mode: [whole, dual]
     steps:
       - name: enable KVM
         run: |
@@ -39,4 +42,4 @@ jobs:
           sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v31
-      - run: nix shell nixpkgs#qemu nixpkgs#openssh -c ./bin/test-install
+      - run: nix shell nixpkgs#qemu nixpkgs#openssh -c ./bin/test-install ${{ matrix.mode }}

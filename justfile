@@ -192,9 +192,9 @@ iso:
 flash:
     @bin/flash
 
-# install a test host with the real installer in a VM and boot it (~10 min, KVM)
-test-install:
-    @bin/test-install
+# install a test host with the real installer in a VM and boot it (~10 min, KVM); `dual`: next to a fake Windows
+test-install *args:
+    @bin/test-install {{ args }}
 
 # install a host onto a machine booted from the hub ISO: hub install <host> <ip>
 install name ip:

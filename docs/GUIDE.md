@@ -17,7 +17,8 @@ only names the bindings you need daily.
 | `hub feature` | Switch features on and off. |
 
 If something looks wrong: `hub status` (overview), `hub health` (problems), `hub doctor`
-(one-time setup steps still open).
+(one-time setup steps still open, plus: disk space, unpushed repo changes, programs in
+`~/.local/bin` that hide the Nix ones).
 
 ## Changing the system
 
@@ -64,6 +65,7 @@ Everything optional is a flag in `hosts/<host>/features.nix`, one per line.
 | `backupExternal`, `backupHomelab`, `backupCloud` | The three backup targets |
 | `freshRoot` | `/` is wiped at every boot (see Safety) |
 | `secureBoot` | Secure Boot and TPM unlock (read INSTALL.md section 5 first) |
+| `remoteUnlock` | at boot, unlock the disk over SSH: `ssh -p 2222 root@<machine>` (wired network only) |
 
 A feature that needs a secret cannot be built before `hub sec` has created the secrets file
 and the secret is in it.
@@ -226,7 +228,7 @@ path does not exist, `mkcd`, `x <archive>` extracts. Aliases: `g` git, `lg` lazy
   (a name and a URL per line). One that is down shows in the bar's health indicator and in the
   `services` widget.
 - `hp` picks a machine from the tailnet or SSH config and opens SSH with a resumed tmux session.
-- `hub deploy <host>` rebuilds a remote host from here; `hub install <host> <ip>` installs one. `hub iso` (or `bin/build-iso` on a machine without NixOS) builds the installer into `iso/`, `hub flash` writes it to a USB stick; on boot it starts `hub-install`. `hub test-install` installs a test host with it in a VM (~10 min).
+- `hub deploy <host>` rebuilds a remote host from here; `hub install <host> <ip>` installs one. `hub iso` (or `bin/build-iso` on a machine without NixOS) builds the installer into `iso/`, `hub flash` writes it to a USB stick; on boot it starts `hub-install`. `hub test-install [dual]` installs a test host with it in a VM (~10 min; `dual` next to a fake Windows).
 - `hub net` shows wifi, address, VPN and tailnet state.
 - `ask <question>` queries the local model (needs `hub.ai.enable`); it reads stdin too: `git diff | ask "review this"`.
 

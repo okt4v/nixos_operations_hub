@@ -24,6 +24,14 @@ check "wallpaper chosen" '[ -e ~/med/img/wall/current ]' "ln -s <image> ~/med/im
 check "work git identity" '[ -f ~/.config/git/work ]' "create ~/.config/git/work with a [user] section"
 check "school git identity" '[ -f ~/.config/git/school ]' "create ~/.config/git/school with a [user] section"
 check "calendar synced" '[ -n "$(ls ~/.local/share/cal 2>/dev/null)" ]' "secret 'icloud', hub feature on calendar, hub switch, vdirsyncer discover"
+check "disk has room (under 85% full)" '[ "$(df --output=pcent / | tail -1 | tr -dc 0-9)" -lt 85 ]' "hub gc; hub disk shows what uses your home"
+check "repo committed and pushed" '[ -z "$(git -C "$hub" status --porcelain)" ] && [ "$(git -C "$hub" rev-list --count "@{u}..")" = 0 ]' "commit in $hub and git push"
+# a program in ~/.local/bin (e.g. a self-updating installer) hides the Nix one
+shadowed=$(for f in ~/.local/bin/*; do n=$(basename "$f"); [ -e "/etc/profiles/per-user/$USER/bin/$n" ] || [ -e "/run/current-system/sw/bin/$n" ] && echo "$n"; done 2>/dev/null | xargs)
+check "nothing in ~/.local/bin hides a Nix program" '[ -z "$shadowed" ]' "in ~/.local/bin, remove: $shadowed (then the Nix versions are used)"
+if grep -q "remoteUnlock = true" "$hub/hosts/$(hostname)/features.nix" 2>/dev/null; then
+  check "remote unlock host key" 'sudo -n test -f /var/lib/initrd-ssh/ssh_host_ed25519_key' "sudo mkdir -p /var/lib/initrd-ssh && sudo ssh-keygen -t ed25519 -N '' -f /var/lib/initrd-ssh/ssh_host_ed25519_key, then hub switch"
+fi
 check "Secure Boot" 'sbctl status | grep -qi "secure boot.*enabled"' "optional, see docs/INSTALL.md section 5"
 
 echo
