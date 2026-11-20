@@ -57,13 +57,7 @@ in
     gimp
     inkscape # also `fig`
     qalculate-gtk
-    goldendict-ng
     (pkgs.callPackage ../pkgs/openscreen.nix { })
-    # Chess
-    en-croissant
-    stockfish
-    gnuchess
-    fairymax
   ];
 
   # KeePassXC is the key hub: its database serves SSH keys to the agent and

@@ -1,6 +1,6 @@
 # Editor tooling and global dev tools. Project libraries do NOT go here:
 # they belong in the project's devshell (see templates/).
-{ pkgs, ... }:
+{ pkgs, unstable, ... }:
 
 {
   home.packages = with pkgs; [
@@ -53,7 +53,7 @@
     k9s
     # Tools
     devenv
-    claude-code
+    unstable.claude-code # moves fast; stable lags ~100 versions
     duckdb
     age
     sops
