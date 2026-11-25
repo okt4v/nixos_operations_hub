@@ -18,6 +18,9 @@ in
     initContent = ''
       source ${cfg}/zsh/init.zsh
       source ${cfg}/zsh/aliases.zsh
+      # Completions for 1000+ commands (carapace), shown in the fzf-tab menu
+      export CARAPACE_BRIDGES='zsh,bash'
+      source <(${pkgs.carapace}/bin/carapace _carapace zsh)
       # Tab completion as a fuzzy menu (must load after compinit)
       source ${pkgs.zsh-fzf-tab}/share/fzf-tab/fzf-tab.plugin.zsh
     '';
@@ -140,8 +143,9 @@ in
     gocryptfs
     libsecret # secret-tool, used by `vault`
     zoxide
+    carapace
     fzf
-    eza
+    lsd
     bat
     ripgrep
     fd

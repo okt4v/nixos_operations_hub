@@ -163,7 +163,8 @@ A mode is one file, `config/mode/<name>.sh`, with an `up()` and a `down()` funct
 - In nvim: `<leader>hh` hub menu, `<leader>hs` project status, `:Hub <recipe>`, `:Ask <question>`.
 
 Shell: `Ctrl+R` searches history (atuin), `cd <fragment>` jumps to a known directory when the
-path does not exist, `mkcd`, `x <archive>` extracts. Aliases: `g` git, `lg` lazygit, `v` nvim,
+path does not exist, `mkcd`, `x <archive>` extracts. Tab completes options and arguments of
+most commands (carapace) in a fuzzy menu. `ls`/`la` list with lsd (git status column). Aliases: `g` git, `lg` lazygit, `v` nvim,
 `t` task, `nd` nix develop, `del` moves files to the trash instead of deleting (`trash-restore` undoes).
 
 ## Notes, tasks, focus
