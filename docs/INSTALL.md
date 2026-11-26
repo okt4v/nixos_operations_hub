@@ -33,10 +33,11 @@ back or quits). *Shell* on the first screen leaves it; `hub-install` starts it a
 on the disk changes before the summary at the end, which you confirm (by typing `yes` if it erases
 anything). It asks, in order:
 
-1. **Network**: a cable works by itself; for wifi it opens `nmtui`.
-2. **Keyboard layout**: applies right away, so the passphrase is typed at boot exactly as here.
-   Anything but German is written into the host file (`hub.keyboard`), and the `keyboard` feature
-   (the kanata layer, made for the German layout) starts off.
+1. **Keyboard layout**, first, so everything you type after it (wifi password, names, passphrase)
+   uses it; the disk passphrase is typed the same way at boot. Anything but German is written into
+   the host file (`hub.keyboard`), and the `keyboard` feature (the kanata layer, made for the German
+   layout) starts off.
+2. **Welcome**, then **network**: a cable works by itself; for wifi it opens `nmtui`.
 3. **Host**: one from `hosts/`, or **a new host** for this machine: a name, then a checklist of
    its features (dev-hub's as the start) and one of apps to install (none ticked; `hub apps` later). It gets the shared desktop and this machine's `hardware.nix`;
    commit `hosts/<name>/` after the first login.

@@ -2,7 +2,7 @@
 # hub-install — the ophub NixOS installer. Starts by itself on the ISO's first
 # console (a TUI; "Shell" leaves it, `hub-install` starts it again).
 #
-# Asks for: network, host (or a new one, with its features), time zone, disk,
+# Asks for: keyboard layout, network, host (or a new one, with its features), time zone, disk,
 # how much of it (whole disk / free space next to Windows or another system /
 # replace one partition / reinstall over a previous ophub), disk passphrase,
 # login password. Then shows a summary, and installs only after you agree.
@@ -99,9 +99,25 @@ describe() { # describe <disk>: a short summary of what is on it
   echo "${out:-empty}"
 }
 
-# --- 1. welcome, network ----------------------------------------------------------
 trap failed ERR
 : >"$log"
+
+# --- 1. keyboard -------------------------------------------------------------------
+# first, so everything typed from here on (wifi password, names, passphrase) is
+# typed on the right layout; also the console, the passphrase at boot and the
+# desktop of the installed system (hub.keyboard)
+if [ -z "$kb" ] && [ -n "$tui" ]; then
+  kb=$(d --title " Keyboard " --default-item de:nodeadkeys --menu "Keyboard layout. It applies right away, and the disk passphrase is typed the same way at boot." 0 60 0 \
+    de:nodeadkeys German us "English (US)" gb "English (UK)" ch Swiss fr French es Spanish it Italian \
+    pt Portuguese nl Dutch se Swedish no Norwegian dk Danish "fi" Finnish pl Polish cz Czech hu Hungarian)
+fi
+kb=${kb:-de:nodeadkeys}
+[[ $kb =~ ^[a-z]+(:[a-z_]*)?$ ]] || die "Keyboard layout $kb: use e.g. us or de:nodeadkeys."
+kbl=${kb%%:*} kbv=''
+[[ $kb != *:* ]] || kbv=${kb#*:}
+ckbcomp -I"$XKB_DIR" -rules evdev -layout "$kbl" -variant "$kbv" 2>/dev/null | loadkeys -q 2>/dev/null || true
+
+# --- 2. welcome, network ----------------------------------------------------------
 if [ -n "$tui" ]; then
   ip=$(ip -4 -o addr show scope global | awk '{ sub("/.*", "", $4); print $4; exit }' || true)
   dialog "${dopts[@]}" --yes-label Install --no-label Shell --yesno \
@@ -125,19 +141,6 @@ done
 # writable copy: the chosen disk and a new host are written into it; no .git,
 # or nix would ignore an uncommitted new host
 rm -rf "$hub" && cp -rL /etc/hub "$hub" && chmod -R u+w "$hub" && rm -rf "$hub/.git"
-
-# --- 2. keyboard -------------------------------------------------------------------
-# for the console, the passphrase at boot and the desktop (hub.keyboard)
-if [ -z "$kb" ] && [ -n "$tui" ]; then
-  kb=$(d --title " Keyboard " --default-item de:nodeadkeys --menu "Keyboard layout. It applies right away, so the passphrase you type next is typed the same way at boot." 0 60 0 \
-    de:nodeadkeys German us "English (US)" gb "English (UK)" ch Swiss fr French es Spanish it Italian \
-    pt Portuguese nl Dutch se Swedish no Norwegian dk Danish "fi" Finnish pl Polish cz Czech hu Hungarian)
-fi
-kb=${kb:-de:nodeadkeys}
-[[ $kb =~ ^[a-z]+(:[a-z_]*)?$ ]] || die "Keyboard layout $kb: use e.g. us or de:nodeadkeys."
-kbl=${kb%%:*} kbv=''
-[[ $kb != *:* ]] || kbv=${kb#*:}
-ckbcomp -I"$XKB_DIR" -rules evdev -layout "$kbl" -variant "$kbv" 2>/dev/null | loadkeys -q 2>/dev/null || true
 
 # --- 3. host ------------------------------------------------------------------------
 if [ -z "$host" ]; then

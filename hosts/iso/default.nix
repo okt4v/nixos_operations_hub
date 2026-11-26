@@ -1,6 +1,6 @@
 # Installer USB: `hub iso` (or bin/build-iso), write iso/*.iso to a stick, boot it.
 # The installer (`hub-install`, a TUI) starts on its own on the first console:
-# network, keyboard, host, time zone, disk (whole, or next to Windows),
+# keyboard, network, host, time zone, disk (whole, or next to Windows),
 # passphrase, password, and a LUKS header backup to another stick. It carries this flake at
 # /etc/hub and accepts your SSH key as root, so instead you can also run
 # from another machine:  hub install <host> <ip>
