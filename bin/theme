@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# theme [name|apply|gen|list] — one palette for every app.
+# theme [name|apply|gen|list|wall <image>] — one palette for every app.
 #   theme          toggle dark/light
 #   theme <name>   switch to config/palette/<name>
 #   theme apply    re-read the current palette after editing its file
 #   theme list     palettes that exist
+#   theme wall <image>  wallpaper (from ~/med/img/wall) for the current
+#                  palette; each palette remembers its own
 # A palette is a file of eight colours in config/palette/; add a file to add
 # one. From it the colour files for sway, waybar, kitty, tmux, fuzzel, mako,
 # fastfetch and eww are written to ~/.config/pal/<name>/. No rebuild.
@@ -15,7 +17,7 @@ dir=${XDG_CONFIG_HOME:-$HOME/.config}/pal
 
 gen() { # gen <name>: write every app's colour file for one palette
   # shellcheck disable=SC2034 # the colours are read through ${!k} below
-  local name=$1 out=$dir/$1 kind=dark bg fg sel mute acc ok warn crit
+  local name=$1 out=$dir/$1 kind=dark bg fg sel mute acc ok warn crit ansi=''
   # shellcheck source=/dev/null
   . "$src/$name"
   mkdir -p "$out"
@@ -31,8 +33,6 @@ client.urgent           #$crit #$crit #$bg #$crit #$crit
 EOT
   for k in bg fg sel mute acc ok warn crit; do echo "@define-color $k #${!k};"; done >"$out/bar.css"
   for k in bg fg sel mute acc ok warn crit; do echo "\$$k: #${!k};"; done >"$out/eww.scss"
-  # ponytail: only the base colours; the 16 ANSI colours stay kitty's
-  # defaults. Add color0..15 here if a palette reads badly.
   cat >"$out/kitty.conf" <<EOT
 background #$bg
 foreground #$fg
@@ -43,6 +43,9 @@ active_border_color #$acc
 inactive_border_color #$sel
 url_color #$acc
 EOT
+  # the 16 terminal colours, if the palette has them (else kitty's own)
+  local i=0 c
+  for c in $ansi; do echo "color$i #$c"; i=$((i + 1)); done >>"$out/kitty.conf"
   rgb() { printf '38;2;%d;%d;%d' "0x${1:0:2}" "0x${1:2:2}" "0x${1:4:2}"; }
   cat >"$out/fastfetch.jsonc" <<EOT
 {
@@ -94,7 +97,15 @@ EOT
 gen_all() { for f in "$src"/*; do gen "$(basename "$f")"; done; }
 
 cur=$(readlink "$dir/current" 2>/dev/null || echo dark)
+walls=$HOME/med/img/wall # sway shows walls/current; walls/current-<palette> is each palette's
 case ${1:-} in
+  wall)
+    img=$walls/${2:?usage: theme wall <image in $walls>}
+    [ -f "$img" ] || { echo "theme: no $img" >&2; exit 1; }
+    ln -sfn "$img" "$walls/current" && ln -sfn "$img" "$walls/current-$cur"
+    swaymsg reload >/dev/null 2>&1 || true
+    exit 0
+    ;;
   list) ls "$src"; exit 0 ;;
   # gen: files only, no reloads (run at login by home-manager)
   gen) gen_all; [ -e "$dir/current" ] || ln -s dark "$dir/current"; exit 0 ;;
@@ -106,6 +117,7 @@ esac
 
 gen_all
 ln -sfn "$new" "$dir/current"
+[ ! -e "$walls/current-$new" ] || ln -sfn "$(readlink "$walls/current-$new")" "$walls/current"
 
 # Every reload is best-effort: the app may simply not be running.
 swaymsg reload >/dev/null 2>&1 || true

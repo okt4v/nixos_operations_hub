@@ -76,8 +76,9 @@ fi
 
 echo "running hub-install, $mode (log: install.log)"
 s "printf test > /tmp/pp && hub-install --host smoke --disk /dev/vda --layout $layout --passphrase-file /tmp/pp \
-     --password pw --timezone America/New_York --yes" > install.log 2>&1 \
+     --password pw --timezone America/New_York --keyboard us --header-backup /tmp/hdr.img --yes" > install.log 2>&1 \
   || { tail -30 install.log; echo "FAIL: installer" >&2; exit 1; }
+s 'cryptsetup luksDump /tmp/hdr.img >/dev/null' || { echo "FAIL: no LUKS header backup" >&2; exit 1; }
 kill "$(cat qemu.pid)"; sleep 2
 
 echo "booting the installed disk, unlocking over SSH"
@@ -99,7 +100,7 @@ for _ in $(seq 40); do "$expect" unlock.exp > unlock.log 2>&1 && { ok=1; break; 
 up 2224
 # shellcheck disable=SC2016 # runs in the VM
 s 'grep -q "ophub NixOS" /etc/os-release && [ "$(stat -c %U /home/oktav/tec/nix/flake.nix)" = oktav ] &&
-   readlink /etc/localtime | grep -q New_York' \
+   readlink /etc/localtime | grep -q New_York && grep -q "XKB_DEFAULT_LAYOUT=\"us\"" /etc/set-environment' \
   || { echo "FAIL: installed system" >&2; exit 1; }
 if [ "$mode" != whole ]; then
   # shellcheck disable=SC2016 # runs in the VM

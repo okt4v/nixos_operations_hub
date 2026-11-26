@@ -1,6 +1,7 @@
 # Installer USB: `hub iso` (or bin/build-iso), write iso/*.iso to a stick, boot it.
 # The installer (`hub-install`, a TUI) starts on its own on the first console:
-# network, host, time zone, disk (whole, or next to Windows), passphrase. It carries this flake at
+# network, keyboard, host, time zone, disk (whole, or next to Windows),
+# passphrase, password, and a LUKS header backup to another stick. It carries this flake at
 # /etc/hub and accepts your SSH key as root, so instead you can also run
 # from another machine:  hub install <host> <ip>
 {
@@ -29,8 +30,12 @@ let
       pkgs.jq
       pkgs.openssl
       pkgs.iproute2
+      pkgs.ckbcomp
+      pkgs.kbd
+      pkgs.cryptsetup
       inputs.disko.packages.x86_64-linux.disko
     ];
+    runtimeEnv.XKB_DIR = "${pkgs.xkeyboard_config}/etc/X11/xkb"; # for ckbcomp
     text = builtins.readFile ./hub-install.sh;
   };
 in

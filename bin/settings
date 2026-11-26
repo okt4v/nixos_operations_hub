@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# settings — a window to click the look together: palette (theme) and the
-# wallpaper widgets. Super+Shift+W opens and closes it.
+# settings — a window to click the look together: palette (theme), wallpaper
+# (~/med/img/wall, remembered per palette) and the wallpaper widgets.
+# Super+Shift+W opens and closes it.
 #   settings            open/close the window (eww, config/eww/eww.yuck)
-#   settings json       its state as JSON (palettes, widgets, dashboard)
+#   settings json       its state as JSON (palettes, walls, widgets, dashboard)
 #   settings do <cmd>   what a click runs: `theme <name>` or `widgets ...`
 # Every change is the same as the command line: `theme`, `widgets`.
 set -eu
@@ -10,6 +11,7 @@ set -eu
 pal=${XDG_CONFIG_HOME:-$HOME/.config}/pal
 state=${XDG_STATE_HOME:-$HOME/.local/state}/hub
 hub=$(dirname "$(dirname "$(readlink -f "$0")")")
+walls=$HOME/med/img/wall
 
 json() {
   local cur
@@ -32,7 +34,10 @@ json() {
     printf '%s{"name":"%s","on":%s}' "$sep" "$name" "$([ "$st" = on ] && echo true || echo false)"
     sep=,
   done < <(widgets list)
-  printf '],"hidden":%s,"pos":"%s"}\n' "$([ -e "$state/widgets-hidden" ] && echo true || echo false)" \
+  printf '],"walls":%s' "$(find "$walls" -maxdepth 1 -type f -printf '%f\n' 2>/dev/null | sort |
+    jq -Rnc --arg dir "$walls" --arg cur "$(readlink "$walls/current" 2>/dev/null)" \
+      '[inputs | {name: ., path: ($dir + "/" + .), current: ($dir + "/" + . == $cur)}]')"
+  printf ',"hidden":%s,"pos":"%s"}\n' "$([ -e "$state/widgets-hidden" ] && echo true || echo false)" \
     "$(cat "$state/widgets-pos" 2>/dev/null || echo bottom)"
 }
 refresh() { eww update settings="$(json)"; }
@@ -43,7 +48,7 @@ case ${1:-} in
     shift
     case ${1:-} in theme | widgets) "$@" >/dev/null ;; *) echo "settings: do theme|widgets ..." >&2; exit 1 ;; esac
     # `theme` reloads eww, which closes this window and resets its state
-    [ "$1" != theme ] || eww open settings >/dev/null 2>&1
+    [ "$1 ${2:-}" = "theme wall" ] || [ "$1" != theme ] || eww open settings >/dev/null 2>&1
     refresh
     ;;
   '')

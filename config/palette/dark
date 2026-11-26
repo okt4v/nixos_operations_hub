@@ -1,5 +1,5 @@
 # Black and amber, the default. Edit a value, then run `theme apply`.
-# Hex without "#". kind is dark or light (GTK and nvim follow it).
+# Hex without "#". kind is dark or light (GTK and nvim follow it); ansi is optional.
 kind=dark
 bg=000000
 fg=e6e6e6
@@ -9,3 +9,5 @@ acc=ff9900
 ok=00d26a
 warn=ffd400
 crit=ff3b30
+# the 16 terminal colours (black red green yellow blue magenta cyan white, then bright)
+ansi="2a2a2a ff3b30 00d26a ffd400 4a9eff c678dd 56d4dd e6e6e6 808080 ff6b61 3ee68f ffe14d 7ab8ff d899e8 88e3ea ffffff"

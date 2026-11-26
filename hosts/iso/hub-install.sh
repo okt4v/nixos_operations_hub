@@ -9,7 +9,8 @@
 #
 # Without questions (bin/test-install uses this):
 #   hub-install --host H --disk /dev/X --layout whole|free|ophub|/dev/<part> \
-#     --passphrase-file F [--password P] [--timezone Z] [--size GiB] --yes
+#     --passphrase-file F [--password P] [--timezone Z] [--keyboard L[:V]] \
+#     [--size GiB] [--header-backup FILE] --yes
 # Built into the ISO by hosts/iso/default.nix (shellchecked there).
 set -euo pipefail
 [ "$(id -u)" = 0 ] || exec sudo "$0" "$@"
@@ -20,7 +21,7 @@ hub=/tmp/hub
 esp_type=c12a7328-f81f-11d2-ba4b-00a0c93ec93b
 msr_type=e3c9e316-0b5c-4db8-817d-f92df00215ae
 default_tz=Europe/Vienna
-host='' disk='' layout='' pass='' upass='' tz='' size='' new='' tui=1
+host='' disk='' layout='' pass='' upass='' tz='' size='' kb='' hdr='' new='' tui=1
 
 while [ $# -gt 0 ]; do
   case $1 in
@@ -30,6 +31,8 @@ while [ $# -gt 0 ]; do
     --passphrase-file) pass=$(cat "$2") ;;
     --password) upass=$2 ;;
     --timezone) tz=$2 ;;
+    --keyboard) kb=$2 ;;          # xkb layout[:variant], e.g. us or de:nodeadkeys
+    --header-backup) hdr=$2 ;;    # file to write the LUKS header backup to
     --size) size=$2 ;;
     --yes) tui='' && shift && continue ;;
     *) echo "hub-install: unknown option $1 (see the top of hub-install.sh)" >&2; exit 1 ;;
@@ -122,7 +125,20 @@ done
 # or nix would ignore an uncommitted new host
 rm -rf "$hub" && cp -rL /etc/hub "$hub" && chmod -R u+w "$hub" && rm -rf "$hub/.git"
 
-# --- 2. host ------------------------------------------------------------------------
+# --- 2. keyboard -------------------------------------------------------------------
+# for the console, the passphrase at boot and the desktop (hub.keyboard)
+if [ -z "$kb" ] && [ -n "$tui" ]; then
+  kb=$(d --title " Keyboard " --default-item de:nodeadkeys --menu "Keyboard layout. It applies right away, so the passphrase you type next is typed the same way at boot." 0 60 0 \
+    de:nodeadkeys German us "English (US)" gb "English (UK)" ch Swiss fr French es Spanish it Italian \
+    pt Portuguese nl Dutch se Swedish no Norwegian dk Danish "fi" Finnish pl Polish cz Czech hu Hungarian)
+fi
+kb=${kb:-de:nodeadkeys}
+[[ $kb =~ ^[a-z]+(:[a-z_]*)?$ ]] || die "Keyboard layout $kb: use e.g. us or de:nodeadkeys."
+kbl=${kb%%:*} kbv=''
+[[ $kb != *:* ]] || kbv=${kb#*:}
+ckbcomp -I"$XKB_DIR" -rules evdev -layout "$kbl" -variant "$kbv" 2>/dev/null | loadkeys -q 2>/dev/null || true
+
+# --- 3. host ------------------------------------------------------------------------
 if [ -z "$host" ]; then
   items=()
   while read -r h; do items+=("$h" "$(sed -n '1s/^# *//p' "$hub/hosts/$h/default.nix" | cut -c1-50)"); done \
@@ -139,9 +155,15 @@ if [ "$host" = "+new" ]; then
   cp "$hub/hosts/dev-hub/features.nix" "$hub/hosts/$host/"
   # features: every `name = true|false; # what` line of dev-hub's features.nix
   items=()
-  while read -r n v c; do items+=("$n" "$c" "$([ "$v" = true ] && echo on || echo off)"); done \
+  # the kanata layer (config/kanata) is written for the German layout: off elsewhere
+  while read -r n v c; do
+    [ "$n" != keyboard ] || [ "$kbl" = de ] || v=false
+    items+=("$n" "$c" "$([ "$v" = true ] && echo on || echo off)")
+  done \
     < <(sed -nE 's/^  ([a-zA-Z]+) = (true|false); # (.*)/\1 \2 \3/p' "$hub/hosts/$host/features.nix")
-  on=$(d --title " Features " --separate-output --checklist "Space switches a feature. Change them later with: hub feature" 0 90 0 "${items[@]}")
+  note="Space switches a feature. Change them later with: hub feature"
+  [ "$kbl" = de ] || note+="\nkeyboard starts off: its layer is made for the German layout."
+  on=$(d --title " Features " --separate-output --checklist "$note" 0 90 0 "${items[@]}")
   sed -i -E 's/^(  [a-zA-Z]+ = )true;/\1false;/' "$hub/hosts/$host/features.nix"
   for n in $on; do sed -i -E "s/^(  $n = )false;/\1true;/" "$hub/hosts/$host/features.nix"; done
   cat >"$hub/hosts/$host/default.nix" <<EOF
@@ -162,14 +184,14 @@ EOF
 fi
 [ -f "$hub/hosts/$host/default.nix" ] || die "No host $host in hosts/."
 
-# --- 3. time zone ---------------------------------------------------------------------
+# --- 4. time zone ---------------------------------------------------------------------
 [ -n "$tui" ] || tz=${tz:-$default_tz}
 while [[ ! $tz =~ ^[A-Za-z0-9_+/-]+$ ]] || [ ! -f "/etc/zoneinfo/$tz" ]; do
   [ -n "$tui" ] || die "Unknown time zone $tz."
   tz=$(d --title " Time zone " --inputbox "Region/City, e.g. Europe/Vienna, America/New_York, Asia/Tokyo." 9 60 "${tz:-$default_tz}")
 done
 
-# --- 4. disk ------------------------------------------------------------------------
+# --- 5. disk ------------------------------------------------------------------------
 if [ -z "$disk" ]; then
   boot=$(lsblk -no PKNAME "$(findmnt -no SOURCE /iso)" 2>/dev/null || true) # the stick
   items=()
@@ -182,7 +204,7 @@ if [ -z "$disk" ]; then
 fi
 [ -b "$disk" ] || die "$disk is not a disk."
 
-# --- 5. how much of it ----------------------------------------------------------------
+# --- 6. how much of it ----------------------------------------------------------------
 esp=$(parts "$disk" | awk -v t="$esp_type" '$2 == t { print $1; exit }')
 read -r fstart fend < <(largest_free)
 free_gib=$([ "$fend" -gt 0 ] && gib $(( fend - fstart + 1 )) || echo 0)
@@ -236,7 +258,7 @@ if [ -n "$dual" ]; then
   done
 fi
 
-# --- 6. passphrase, password ------------------------------------------------------------
+# --- 7. passphrase, password ------------------------------------------------------------
 while [ -z "$pass" ]; do
   a=$(d --title " Disk passphrase " --insecure --passwordbox "Encrypts the disk; asked at every boot. Keep it safe: without it the data is gone." 10 70)
   b=$(d --title " Disk passphrase " --insecure --passwordbox "Once more:" 8 70)
@@ -249,7 +271,7 @@ while [ -n "$tui" ] && [ -z "$upass" ]; do
 done
 upass=${upass:-changeme}
 
-# --- 7. summary --------------------------------------------------------------------------
+# --- 8. summary --------------------------------------------------------------------------
 case $layout in
   whole) what="ERASES ALL OF $disk ($(describe "$disk" | sed 's/, $//'))" ;;
   free) what="Uses $size GiB of the free space on $disk; every partition stays" ;;
@@ -262,6 +284,7 @@ shared="1G boot partition + encrypted btrfs; the EFI partition stays, mounted at
 [ -n "$dual" ] || shared="EFI partition + encrypted btrfs"
 summary="Host:       $host${new:+ (new)}
 Time zone:  $tz
+Keyboard:   $kb
 Disk:       $what
 Layout:     $shared
 User:       oktav$warn"
@@ -273,12 +296,13 @@ if [ -n "$tui" ]; then
   fi
 fi
 
-# --- 8. install --------------------------------------------------------------------------
+# --- 9. install --------------------------------------------------------------------------
 # the host file records the disk and how it is shared; it is copied into the
 # installed repo, so `git diff` there shows what the installer chose
 f=$hub/hosts/$host/default.nix
-sed -i -e "s|hub.disk = \".*\";|hub.disk = \"$disk\";|" -e '/hub.dualBoot = /d' -e '/time.timeZone = /d' "$f"
+sed -i -e "s|hub.disk = \".*\";|hub.disk = \"$disk\";|" -e '/hub.dualBoot = /d' -e '/time.timeZone = /d' -e '/hub.keyboard = /d' "$f"
 [ "$tz" = "$default_tz" ] || sed -i "/hub.disk = /a\\  time.timeZone = \"$tz\";" "$f"
+[ "$kb" = de:nodeadkeys ] || sed -i "/hub.disk = /a\\  hub.keyboard = { layout = \"$kbl\"; variant = \"$kbv\"; };" "$f"
 
 disko_fmt() { printf '%s\n%s\n' "$pass" "$pass" | disko "$@"; } # passphrase on stdin, asked twice
 if [ -n "$dual" ]; then
@@ -316,6 +340,39 @@ nixos-enter --root /mnt -c "chown -R oktav:users /home/oktav" >>"$log" 2>&1
 printf 'oktav:%s\n' "$upass" | nixos-enter --root /mnt -c chpasswd >>"$log" 2>&1
 # freshRoot (modules/fresh-root.nix) reads the password from /persist
 [ ! -d /mnt/persist ] || { mkdir -p /mnt/persist/etc && openssl passwd -6 -stdin <<<"$upass" >/mnt/persist/etc/hub-password; }
+
+# a copy of the LUKS header, kept off this disk: if the header is ever damaged,
+# the passphrase alone cannot open the disk any more
+luksdev=$(cryptsetup status crypt | awk '$1 == "device:" { print $2 }')
+if [ -z "$hdr" ] && [ -n "$tui" ] &&
+  dialog --backtitle "$title" --title " Header backup " --yes-label Save --no-label Skip --yesno \
+"Save a backup of the disk's encryption header to another USB stick?
+
+If the header at the start of the encrypted partition is ever damaged,
+the passphrase alone cannot open the disk. With this file it can:
+  cryptsetup luksHeaderRestore <partition> --header-backup-file <file>
+It is useless without the passphrase. Plug in the stick now." 14 76; then
+  boot=$(lsblk -no PKNAME "$(findmnt -no SOURCE /iso)" 2>/dev/null || true)
+  until [ -n "$hdr" ]; do
+    items=()
+    while read -r name bytes fs pk; do # partitions with a filesystem on USB disks, not the installer stick
+      [ "${pk##*/}" != "$boot" ] && [ "$(lsblk -dno TRAN "$pk")" = usb ] || continue
+      items+=("$name" "$fs $(( bytes / 1000000000 ))GB")
+    done < <(lsblk -lpnbo NAME,SIZE,FSTYPE,PKNAME | awk 'NF == 4 && $3 ~ /^(vfat|exfat|ext4|ntfs)$/')
+    if [ ${#items[@]} -eq 0 ]; then
+      dialog --backtitle "$title" --yes-label "Look again" --no-label Skip --yesno "No USB stick with a filesystem found." 7 50 || break
+      continue
+    fi
+    p=$(dialog --backtitle "$title" --menu "Save it on:" 0 50 0 "${items[@]}" 3>&1 1>&2 2>&3) || break
+    mkdir -p /run/hub-usb && mount "$p" /run/hub-usb && hdr=/run/hub-usb/ophub-$host-luks-header.img
+  done
+fi
+if [ -n "$hdr" ]; then
+  rm -f "$hdr"
+  cryptsetup luksHeaderBackup "$luksdev" --header-backup-file "$hdr"
+  echo "LUKS header of $luksdev saved to $hdr" >>"$log"
+  ! mountpoint -q /run/hub-usb || umount /run/hub-usb
+fi
 install -m 600 "$log" /mnt/var/log/hub-install.log
 umount -R /mnt # writes everything out: safe to power off from here
 

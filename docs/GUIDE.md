@@ -73,11 +73,13 @@ and the secret is in it.
 ## Look
 
 Black and amber, square corners, one monospace font. `theme` is the theme manager: one palette
-of eight colours for every app (sway, waybar, kitty, tmux, fuzzel, mako, eww, fastfetch, GTK, nvim).
+of eight colours (plus the 16 terminal colours) for every app (sway, waybar, kitty, tmux, fuzzel,
+mako, eww, fastfetch, GTK, nvim).
 Palettes: dark (default), light, nord, gruvbox, catppuccin, solarized. Pick one by click in the
 **settings window** (`Super+Shift+W` or `settings`), or `theme <name>`; `theme` alone toggles dark
 and light. Each palette is a file in `config/palette/`: edit it and run `theme apply`; a new file is a
-new palette.
+new palette. The settings window also picks the **wallpaper** from `~/med/img/wall` (or `theme wall
+<file>`); each palette remembers its own, so switching palette switches the wallpaper too.
 `fastfetch` shows the ophub logo in the accent colour.
 
 ## Desktop
@@ -104,7 +106,7 @@ audio, wifi, bluetooth, vpn, night, wall, kill, pass, theme, power. The less obv
 - `links` opens a bookmark from `config/links`; `snip` copies a text snippet from `config/snippets`.
 - `qr` shows the clipboard as a QR code, to get a link onto your phone (`qr <text>` in a terminal).
 - `pw` puts a new 24-character password in the clipboard, for one paste.
-- `vpn` connects, disconnects or picks a country; `wall` picks the wallpaper from `~/med/img/wall`;
+- `vpn` connects, disconnects or picks a country; `wall` picks the wallpaper from `~/med/img/wall` (for the current palette);
   `kill` stops a process, heaviest first.
 
 **Scratchpads** toggle a floating window and start the app on first use:
@@ -130,6 +132,10 @@ inbox, month, services. They show only on empty workspaces. Switch them, the who
 its position by click in the settings window (`Super+Shift+W`), from the menu (`widgets`), or with
 `widgets on|off <name>`, `widgets show|hide`, `widgets pos top|bottom`.
 Location for the weather: `config/eww/weather.conf`.
+
+**Keyboard layout**: `hub.keyboard = { layout = "us"; variant = ""; };` in the host's `default.nix`
+(default German, no dead keys), then `hub switch`. It sets the console, the passphrase prompt at
+boot, sway and X apps alike. The installer writes it for you.
 
 ## Modes
 

@@ -26,6 +26,21 @@
     description = "Feature flags of this host.";
   };
 
+  # Keyboard layout (xkb names), for the console, the disk passphrase at boot,
+  # sway and X apps alike. The installer asks for it.
+  options.hub.keyboard = {
+    layout = lib.mkOption {
+      type = lib.types.str;
+      default = "de";
+      description = "xkb layout: de, us, gb, fr, ch, ...";
+    };
+    variant = lib.mkOption {
+      type = lib.types.str;
+      default = "nodeadkeys";
+      description = "xkb variant, \"\" for the plain layout.";
+    };
+  };
+
   config = {
     nix.settings = {
       experimental-features = [
@@ -56,12 +71,22 @@
     };
     boot.loader.efi.canTouchEfiVariables = true;
     # systemd in the initrd: needed later for TPM unlock, and it carries the
-    # console keymap so the disk passphrase is typed on the German layout.
+    # console keymap so the disk passphrase is typed on hub.keyboard's layout.
     boot.initrd.systemd.enable = true;
 
     time.timeZone = lib.mkDefault "Europe/Vienna"; # the installer may set another per host
+    services.xserver.xkb = {
+      inherit (config.hub.keyboard) layout variant;
+      options = "caps:escape";
+    };
+    # sway (config/sway/input.conf sets no layout) reads these
+    environment.sessionVariables = {
+      XKB_DEFAULT_LAYOUT = config.hub.keyboard.layout;
+      XKB_DEFAULT_VARIANT = config.hub.keyboard.variant;
+      XKB_DEFAULT_OPTIONS = "caps:escape";
+    };
     console = {
-      keyMap = "de-latin1-nodeadkeys";
+      useXkbConfig = true; # the console keymap follows the xkb layout
       earlySetup = true;
     };
 

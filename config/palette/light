@@ -8,3 +8,5 @@ acc=b35900
 ok=248a3d
 warn=c93400
 crit=d70015
+# the 16 terminal colours (black red green yellow blue magenta cyan white, then bright)
+ansi="1c1c1e d70015 248a3d a05a00 0040dd 8944ab 0071a4 d1d1d6 6e6e73 ff3b30 34c759 c93400 007aff af52de 32ade6 3a3a3c"

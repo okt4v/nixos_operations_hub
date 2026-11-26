@@ -35,23 +35,32 @@ on the disk changes before the summary at the end, which you confirm (by typing 
 anything). It asks, in order:
 
 1. **Network**: a cable works by itself; for wifi it opens `nmtui`.
-2. **Host**: one from `hosts/`, or **a new host** for this machine: a name, then a checklist of
+2. **Keyboard layout**: applies right away, so the passphrase is typed at boot exactly as here.
+   Anything but German is written into the host file (`hub.keyboard`), and the `keyboard` feature
+   (the kanata layer, made for the German layout) starts off.
+3. **Host**: one from `hosts/`, or **a new host** for this machine: a name, then a checklist of
    its features (dev-hub's as the start). It gets the shared desktop and this machine's `hardware.nix`;
    commit `hosts/<name>/` after the first login.
-3. **Time zone**, e.g. `Europe/Vienna` (anything else is written into the host file).
-4. **Disk**: each one with what is on it now (`ntfs 200G, EFI 0G, ...`). The stick itself is not offered.
-5. **How much of it**:
+4. **Time zone**, e.g. `Europe/Vienna` (anything else is written into the host file).
+5. **Disk**: each one with what is on it now (`ntfs 200G, EFI 0G, ...`). The stick itself is not offered.
+6. **How much of it**:
    - **the whole disk**: erases everything on it.
    - **the free space** (when there is 30 GB or more): every partition stays; you choose how many GB to use.
    - **replace one partition** (e.g. an old D: drive or another Linux): only that one is erased.
    - **reinstall over the previous ophub NixOS**: replaces its two partitions, keeps the rest.
    The last three need an EFI partition on that disk (Windows installed in UEFI mode).
-6. **Disk passphrase** (twice) and the **login password** for `oktav` (empty: `changeme`).
-7. **Summary**, then it installs, with the output live in a box. On failure it shows the end of the
+7. **Disk passphrase** (twice) and the **login password** for `oktav` (empty: `changeme`).
+8. **Summary**, then it installs, with the output live in a box. On failure it shows the end of the
    log (`/tmp/hub-install.log`; on the installed system `/var/log/hub-install.log`).
+9. **Header backup** (optional): saves the disk's encryption header to another USB stick as
+   `ophub-<host>-luks-header.img`. If the header on the disk is ever damaged, the passphrase alone
+   no longer opens it; with the file it does:
+   `sudo cryptsetup luksHeaderRestore /dev/disk/by-partlabel/<partition> --header-backup-file <file>`.
+   Keep it with your backups; it is useless without the passphrase. Later:
+   `sudo cryptsetup luksHeaderBackup <partition> --header-backup-file <file>`.
 
 It puts this repo at `~/tec/nix`; `git diff` there shows what the installer wrote into the host
-file (disk, dual boot, time zone).
+file (disk, dual boot, time zone, keyboard).
 
 Or from another machine on the network: `hub install dev-hub <ip>` (whole disk).
 

@@ -70,7 +70,7 @@
 
 ;; Settings window (`settings`, Super+Shift+W): palette and widgets by click.
 ;; Its state comes from `settings json`; a click runs `settings do ...`.
-(defvar settings '{"palettes":[],"widgets":[],"hidden":false,"pos":"bottom"}')
+(defvar settings '{"palettes":[],"walls":[],"widgets":[],"hidden":false,"pos":"bottom"}')
 
 (defwidget settings-panel []
   (box :class "settings" :orientation "v" :space-evenly false :spacing 10
@@ -88,6 +88,16 @@
               (label :style "color: #${p.ok}" :text "■")
               (label :style "color: #${p.crit}" :text "■"))
             (label :xalign 0 :text "${p.current ? '●' : '○'} ${p.name}")))))
+    (label :class "head" :xalign 0 :text "WALLPAPER   ~/med/img/wall, one per palette")
+    (box :class "body" :orientation "v" :space-evenly false
+      (label :class "dim" :xalign 0 :visible {arraylength(settings.walls) == 0} :text "no images in ~/med/img/wall yet")
+      (scroll :vscroll true :hscroll false :height {min(arraylength(settings.walls), 4) * 52}
+        (box :orientation "v" :spacing 4 :space-evenly false
+          (for w in {settings.walls}
+            (button :class "row ${w.current ? 'on' : ''}" :onclick "settings do theme wall '${w.name}'"
+              (box :space-evenly false :spacing 8
+                (image :path {w.path} :image-width 72 :image-height 40)
+                (label :xalign 0 :limit-width 28 :text "${w.current ? '●' : '○'} ${w.name}")))))))
     (label :class "head" :xalign 0 :text "WIDGETS   on the wallpaper of empty workspaces")
     (box :class "body" :orientation "v" :spacing 4 :space-evenly false
       (box :spacing 4

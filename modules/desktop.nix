@@ -72,11 +72,6 @@ in
 
   services.power-profiles-daemon.enable = true;
 
-  services.xserver.xkb = {
-    layout = "de";
-    variant = "nodeadkeys";
-    options = "caps:escape";
-  };
   services.libinput.enable = true;
 
   services.printing.enable = true;
