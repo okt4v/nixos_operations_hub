@@ -150,6 +150,7 @@ for _ in $(seq 40); do "$expect" unlock.exp > unlock.log 2>&1 && { ok=1; break; 
 up 2224
 # shellcheck disable=SC2016 # runs in the VM
 s 'grep -q "ophub NixOS" /etc/os-release && [ "$(stat -c %U /home/oktav/tec/nix/flake.nix)" = oktav ] &&
+   grep -q -- "--- choices" /var/log/hub-install.log && grep -q -- "--- done" /var/log/hub-install.log &&
    readlink /etc/localtime | grep -q New_York && grep -q "XKB_DEFAULT_LAYOUT=\"us\"" /etc/set-environment' \
   || { echo "FAIL: installed system" >&2; exit 1; }
 if [ "$mode" != whole ]; then

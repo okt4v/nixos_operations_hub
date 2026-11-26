@@ -50,8 +50,15 @@ anything). It asks, in order:
    - **reinstall over the previous ophub NixOS**: replaces its two partitions, keeps the rest.
    The last three need an EFI partition on that disk (Windows installed in UEFI mode).
 7. **Disk passphrase** (twice) and the **login password** for `oktav` (empty: `changeme`).
-8. **Summary**, then it installs, with the output live in a box. On failure it shows the end of the
-   log (`/tmp/hub-install.log`; on the installed system `/var/log/hub-install.log`).
+8. **Summary**, then it installs, with the output live in a box.
+
+   **The install log** records everything with times: your choices (never passwords), the disks
+   before and after, the output of every step, and any error message. After a successful install it
+   is `/var/log/hub-install.log` on the new system. If something fails, the installer says in which
+   step and shows the end of the log, then offers to **read the whole log**, **save it to a USB stick**
+   (`hub-install-<date>.log`; any stick with a FAT, exFAT, NTFS or ext4 filesystem) or leave to a
+   shell. Until you reboot it is also at `/tmp/hub-install.log` (`less /tmp/hub-install.log`); it lives
+   in memory, so save it first.
 9. **Header backup** (optional): saves the disk's encryption header to another USB stick as
    `ophub-<host>-luks-header.img`. If the header on the disk is ever damaged, the passphrase alone
    no longer opens it; with the file it does:

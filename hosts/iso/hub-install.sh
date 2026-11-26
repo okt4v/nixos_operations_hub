@@ -42,32 +42,75 @@ while [ $# -gt 0 ]; do
 done
 
 # --- dialog helpers -----------------------------------------------------------
+# ask <dialog args>: the answer on stdout, the screen on the terminal
+ask() { dialog "${dopts[@]}" --output-fd 3 "$@" 3>&1 1>/dev/tty; }
 # d <dialog args>: prints the answer. Cancel/Esc offers to quit, else asks again.
 d() {
   local out
-  if out=$(dialog "${dopts[@]}" "$@" 3>&1 1>&2 2>&3); then printf '%s' "$out"; return; fi
+  if out=$(ask "$@"); then printf '%s' "$out"; return; fi
   # runs inside $(...): end the whole installer, not just this subshell
-  dialog "${dopts[@]}" --yesno "Quit the installer?\n\nNothing has been changed yet. hub-install starts it again." 8 60 3>&1 1>&2 2>&3 && { clear >&2; kill "$$"; exit 1; }
+  dialog "${dopts[@]}" --yesno "Quit the installer?\n\nNothing has been changed yet. hub-install starts it again." 8 60 >/dev/tty && { clear >/dev/tty; kill -USR1 "$$"; exit 1; }
   d "$@"
 }
 msg() { if [ -n "$tui" ]; then dialog "${dopts[@]}" --msgbox "$1" 0 0; else echo "$1"; fi; }
-die() { msg "$1"; exit 1; }
+die() { echo "[$(date +%T)] STOPPED: $1" >>"$log"; msg "$1"; handled=1; exit 1; }
 
+note() { echo "[$(date +%T)] $*" >>"$log"; } # a line in the log
 # run <title> <cmd...>: output goes to the log and, live, into a box
+step=''
 run() {
-  echo "=== $1" >>"$log"
+  step=$1
+  note "=== $1"
   if [ -n "$tui" ]; then
     "${@:2}" 2>&1 | tee -a "$log" | dialog "${dopts[@]}" --title " $1 " --progressbox 22 90
   else
     echo "=== $1"; "${@:2}" 2>&1 | tee -a "$log"
   fi
 }
+# on any error: say which command failed, show the log, offer to keep it
 failed() {
-  local rc=$?
-  [ -n "$tui" ] || { echo "FAILED, log: $log" >&2; exit "$rc"; }
-  dialog "${dopts[@]}" --title " Installation failed " --msgbox \
-    "$(tail -n 18 "$log")\n\nFull log: $log (less $log)" 0 0 || true
-  clear; exit "$rc"
+  local rc=$1 line=$2 cmd=$3
+  handled=1
+  note "FAILED (exit $rc)${step:+ in the step \"$step\"}${line:+, hub-install line $line: $cmd}"
+  [ -n "$tui" ] || { { tail -n 20 "$log"; echo "FAILED, full log: $log"; } >&"$( { true >&4; } 2>/dev/null && echo 4 || echo 2)"; exit "$rc"; }
+  local saved=''
+  while true; do
+    case $(ask --title " Installation failed " --no-cancel --menu \
+"$(tail -n 12 "$log" | cut -c1-110)
+
+The full log is $log. It lives in memory: save it before you reboot.${saved:+
+Saved to: $saved}" 0 0 3 \
+      view "read the whole log" save "save it to a USB stick" shell "leave the installer") in
+      view) dialog "${dopts[@]}" --title " $log " --textbox "$log" 0 0 >/dev/tty || true ;;
+      save)
+        if usb_mount; then
+          saved=/run/hub-usb/hub-install-$(date +%Y%m%d-%H%M).log
+          cp "$log" "$saved" && sync && umount /run/hub-usb && saved+=" (on the stick)"
+        fi ;;
+      *) clear >/dev/tty; exit "$rc" ;;
+    esac
+  done
+}
+# usb_mount: pick a partition on a USB stick (not the installer's) and mount it
+# at /run/hub-usb; fails when there is none or the user cancels
+usb_mount() {
+  local boot items name bytes fs type pk dev p
+  boot=$(lsblk -no PKNAME "$(findmnt -no SOURCE /iso)" 2>/dev/null || true)
+  while true; do
+    items=()
+    # a filesystem on a USB disk: on a partition, or on the whole stick
+    while read -r name bytes fs type pk; do
+      dev=$name; [ "$type" != part ] || dev=$pk
+      [ "${dev##*/}" != "$boot" ] && [ "$(lsblk -dno TRAN "$dev")" = usb ] || continue
+      items+=("$name" "$fs $(numfmt --to=iec "$bytes")")
+    done < <(lsblk -lpnbo NAME,SIZE,FSTYPE,TYPE,PKNAME | awk '$3 ~ /^(vfat|exfat|ext4|ntfs)$/ && ($4 == "disk" || $4 == "part")')
+    if [ ${#items[@]} -eq 0 ]; then
+      dialog "${dopts[@]}" --yes-label "Look again" --no-label Cancel --yesno "Plug in a USB stick (FAT, exFAT, NTFS or ext4)." 7 60 >/dev/tty || return 1
+      continue
+    fi
+    p=$(ask --menu "Save it on:" 0 50 0 "${items[@]}") || return 1
+    mkdir -p /run/hub-usb && mount "$p" /run/hub-usb && return 0
+  done
 }
 
 # --- disk helpers ---------------------------------------------------------------
@@ -99,8 +142,15 @@ describe() { # describe <disk>: a short summary of what is on it
   echo "${out:-empty}"
 }
 
-trap failed ERR
+# An error ends the installer with the failure screen: the ERR trap for
+# commands at the top level, the EXIT trap for those inside functions (where
+# set -e exits without ERR). A deliberate stop sets `handled` first.
+handled=''
+trap 'failed $? $LINENO "$BASH_COMMAND"' ERR
+trap 'rc=$?; [ "$rc" = 0 ] || [ -n "$handled" ] || failed "$rc" "" ""' EXIT
+trap 'handled=1; exit 0' USR1 # "Quit the installer?" answered yes
 : >"$log"
+note "ophub NixOS installer, on NixOS $(nixos-version 2>/dev/null)"
 
 # --- 1. keyboard -------------------------------------------------------------------
 # first, so everything typed from here on (wifi password, names, passphrase) is
@@ -312,6 +362,12 @@ if [ -n "$tui" ]; then
 fi
 
 # --- 9. install --------------------------------------------------------------------------
+# from here on every error message goes to the log (the screens use /dev/tty)
+exec 4>&2 2>>"$log" # 4: the real stderr, for the no-questions mode
+note "--- choices"
+echo "${summary//\\n/ }" >>"$log"
+note "--- disks before"
+lsblk -o NAME,SIZE,TYPE,FSTYPE,PARTLABEL,LABEL,MOUNTPOINT >>"$log"
 # the host file records the disk and how it is shared; it is copied into the
 # installed repo, so `git diff` there shows what the installer chose
 f=$hub/hosts/$host/default.nix
@@ -366,20 +422,7 @@ if [ -z "$hdr" ] && [ -n "$tui" ] &&
 If the header at the start of the encrypted partition is ever damaged, the passphrase alone cannot open the disk. With this file it can:
   cryptsetup luksHeaderRestore <partition> --header-backup-file <file>
 It is useless without the passphrase. Plug in the stick now." 15 76; then
-  boot=$(lsblk -no PKNAME "$(findmnt -no SOURCE /iso)" 2>/dev/null || true)
-  until [ -n "$hdr" ]; do
-    items=()
-    while read -r name bytes fs pk; do # partitions with a filesystem on USB disks, not the installer stick
-      [ "${pk##*/}" != "$boot" ] && [ "$(lsblk -dno TRAN "$pk")" = usb ] || continue
-      items+=("$name" "$fs $(( bytes / 1000000000 ))GB")
-    done < <(lsblk -lpnbo NAME,SIZE,FSTYPE,PKNAME | awk 'NF == 4 && $3 ~ /^(vfat|exfat|ext4|ntfs)$/')
-    if [ ${#items[@]} -eq 0 ]; then
-      dialog "${dopts[@]}" --yes-label "Look again" --no-label Skip --yesno "No USB stick with a filesystem found." 7 50 || break
-      continue
-    fi
-    p=$(dialog "${dopts[@]}" --menu "Save it on:" 0 50 0 "${items[@]}" 3>&1 1>&2 2>&3) || break
-    mkdir -p /run/hub-usb && mount "$p" /run/hub-usb && hdr=/run/hub-usb/ophub-$host-luks-header.img
-  done
+  ! usb_mount || hdr=/run/hub-usb/ophub-$host-luks-header.img
 fi
 if [ -n "$hdr" ]; then
   rm -f "$hdr"
@@ -387,6 +430,8 @@ if [ -n "$hdr" ]; then
   echo "LUKS header of $luksdev saved to $hdr" >>"$log"
   ! mountpoint -q /run/hub-usb || umount /run/hub-usb
 fi
+note "--- done; disks after"
+lsblk -o NAME,SIZE,TYPE,FSTYPE,PARTLABEL,LABEL,MOUNTPOINT >>"$log"
 install -m 600 "$log" /mnt/var/log/hub-install.log
 umount -R /mnt # writes everything out: safe to power off from here
 
