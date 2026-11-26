@@ -31,13 +31,9 @@ The repo lives at `~/tec/nix`.
 - **Everything else** (`modules/`, `home/`, `hosts/`): edit, then `hub switch`.
   `hub test` activates until the next reboot only; `hub rollback` returns to the previous generation.
 - `hub diff` shows which packages a switch would change. `hub check` evaluates all hosts and lints the scripts.
-- **CI** (GitHub Actions) runs the same check on every push. On `main` it also builds the installer ISO
-  (download it from the run's *Artifacts*), runs `hub test-install` in all four modes (one goes through
-  the installer's menus by keystroke) and `hub test-tools` (dev-hub in a VM, `hub selftest` inside).
-- **Binary cache** (optional): make a free cache at cachix.org, then in the GitHub repo set the variable
-  `CACHIX_NAME` and the secret `CACHIX_AUTH_TOKEN`; CI pushes every build there. Put its URL and public
-  key into `hub.cache = { url = "https://<name>.cachix.org"; key = "<name>.cachix.org-1:..."; };` (a
-  host's `default.nix`) and that host, and the installer for it, download instead of building.
+- **Tests** (local, need KVM): `hub test-install [whole|dual|replace|tui]` installs with the real
+  installer in a VM (`tui` through its menus by keystroke); `hub test-tools` runs `hub selftest`
+  inside a dev-hub VM.
 - **Disk space**: when a build leaves less than 5 GB free, Nix deletes unused store paths until 20 GB
   are free (your generations stay). Old generations are pruned on their own (the newest 10, and
   all from the last 14 days, stay).

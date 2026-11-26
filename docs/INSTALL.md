@@ -20,7 +20,6 @@ hub iso                                   # builds iso/*.iso
 hub flash                                 # writes it to a USB stick (asks which)
 ```
 
-Or download the ISO from the latest CI run on GitHub (*Actions → ci → Artifacts*).
 
 On a machine without NixOS (another Linux, macOS), run `./bin/build-iso` from the repo instead.
 It uses Nix if installed (Linux), otherwise Docker; on Apple Silicon the Docker build is emulated and slow.

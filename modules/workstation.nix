@@ -80,7 +80,7 @@ in
         securityModel = "none";
       };
       # swayfx needs GLES; virgl provides it inside QEMU (needs a GPU on the
-      # host; bin/test-tools turns it off on CI)
+      # host; hub.vmGl = false without one, as bin/test-tools does)
       qemu.options = lib.optional config.hub.vmGl "-device virtio-vga-gl";
     };
   };

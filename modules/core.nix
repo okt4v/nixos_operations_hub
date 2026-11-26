@@ -26,21 +26,6 @@
     description = "Feature flags of this host.";
   };
 
-  # A binary cache of this flake's builds (CI pushes to it, see
-  # .github/workflows/ci.yml); empty url = only cache.nixos.org.
-  options.hub.cache = {
-    url = lib.mkOption {
-      type = lib.types.str;
-      default = "";
-      example = "https://ophub.cachix.org";
-    };
-    key = lib.mkOption {
-      type = lib.types.str;
-      default = "";
-      example = "ophub.cachix.org-1:...";
-    };
-  };
-
   options.hub.vmGl = lib.mkOption {
     type = lib.types.bool;
     default = true;
@@ -81,10 +66,6 @@
       # store paths until 20 GiB are free. Generations are never touched.
       min-free = 5 * 1024 * 1024 * 1024;
       max-free = 20 * 1024 * 1024 * 1024;
-    }
-    // lib.optionalAttrs (config.hub.cache.url != "") {
-      extra-substituters = [ config.hub.cache.url ];
-      extra-trusted-public-keys = [ config.hub.cache.key ];
     };
     nixpkgs.config.allowUnfree = true;
 

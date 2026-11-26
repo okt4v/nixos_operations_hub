@@ -7,7 +7,7 @@
 # its menus by keystroke like a person (tmux): first a new host with its
 # feature and app lists up to the summary (cancelled), then a real install
 # into the free space. About 10 minutes each; needs KVM.
-#   bin/test-install [mode]    (hub test-install; CI runs all four)
+#   bin/test-install [mode]    (hub test-install)
 set -euo pipefail
 mode=${1:-whole}
 repo=$(dirname "$(dirname "$(readlink -f "$0")")")

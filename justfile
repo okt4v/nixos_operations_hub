@@ -80,7 +80,7 @@ feature *args:
 selftest:
     @bin/selftest
 
-# boot a host (default dev-hub) headless in a VM and run hub selftest in it (KVM; CI runs it)
+# boot a host (default dev-hub) headless in a VM and run hub selftest in it (KVM)
 test-tools *args:
     @bin/test-tools {{ args }}
 
