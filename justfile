@@ -192,7 +192,7 @@ iso:
 flash:
     @bin/flash
 
-# install a test host with the real installer in a VM and boot it (~10 min, KVM); `dual`: next to a fake Windows
+# install a test host with the real installer in a VM and boot it (~10 min, KVM); `dual`/`replace`: next to a fake Windows
 test-install *args:
     @bin/test-install {{ args }}
 

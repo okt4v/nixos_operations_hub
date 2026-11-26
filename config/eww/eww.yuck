@@ -67,3 +67,41 @@
   :monitor 0 :stacking "bg" :exclusive false :focusable false
   :geometry (geometry :y "36px" :width "94%" :anchor "top center")
   (dash))
+
+;; Settings window (`settings`, Super+Shift+W): palette and widgets by click.
+;; Its state comes from `settings json`; a click runs `settings do ...`.
+(defvar settings '{"palettes":[],"widgets":[],"hidden":false,"pos":"bottom"}')
+
+(defwidget settings-panel []
+  (box :class "settings" :orientation "v" :space-evenly false :spacing 10
+    (box :class "title" :space-evenly false
+      (label :hexpand true :xalign 0 :text "SETTINGS")
+      (button :class "close" :onclick "eww close settings" "×"))
+    (label :class "head" :xalign 0 :text "THEME   every app follows, instantly")
+    (box :class "body" :orientation "v" :spacing 4 :space-evenly false
+      (for p in {settings.palettes}
+        (button :class "row ${p.current ? 'on' : ''}" :onclick "settings do theme ${p.name} &"
+          (box :space-evenly false :spacing 8
+            (box :class "swatch" :style "background-color: #${p.bg}; border-color: #${p.fg}"
+              (label :style "color: #${p.acc}" :text "■")
+              (label :style "color: #${p.fg}" :text "■")
+              (label :style "color: #${p.ok}" :text "■")
+              (label :style "color: #${p.crit}" :text "■"))
+            (label :xalign 0 :text "${p.current ? '●' : '○'} ${p.name}")))))
+    (label :class "head" :xalign 0 :text "WIDGETS   on the wallpaper of empty workspaces")
+    (box :class "body" :orientation "v" :spacing 4 :space-evenly false
+      (box :spacing 4
+        (button :class "row" :onclick "settings do widgets ${settings.hidden ? 'show' : 'hide'}"
+          "${settings.hidden ? '○' : '●'} dashboard")
+        (button :class "row" :onclick "settings do widgets pos ${settings.pos == 'top' ? 'bottom' : 'top'}"
+          "position: ${settings.pos}"))
+      (box :orientation "v" :spacing 4 :space-evenly false
+        (for w in {settings.widgets}
+          (button :class "row ${w.on ? 'on' : ''}" :onclick "settings do widgets ${w.on ? 'off' : 'on'} ${w.name}"
+            (label :xalign 0 :text "${w.on ? '[x]' : '[ ]'} ${w.name}")))))
+    (label :class "dim" :xalign 0 :text "same as: theme <name>, widgets on|off <name>")))
+
+(defwindow settings
+  :monitor 0 :stacking "overlay" :exclusive false :focusable false
+  :geometry (geometry :x "16px" :y "40px" :width "380px" :anchor "top right")
+  (settings-panel))

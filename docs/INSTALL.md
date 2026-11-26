@@ -27,36 +27,51 @@ It uses Nix if installed (Linux), otherwise Docker; on Apple Silicon the Docker 
 
 Boot it. The stick carries this flake at `/etc/hub` and accepts your SSH key.
 
-## 2a. Whole disk (default)
+## 2. The installer
 
-**Wipes the disk.** The installer starts by itself on boot (run it again with `hub-install`):
-it opens `nmtui` if there is no internet, then asks for the host, the disk, a typed `yes`
-and the disk passphrase, installs, puts this repo at `~/tec/nix`, and reboots. Ctrl+C drops to a shell.
+It starts by itself on boot, a menu program on the console (arrow keys, Space, Enter; Esc goes
+back or quits). *Shell* on the first screen leaves it; `hub-install` starts it again. Nothing
+on the disk changes before the summary at the end, which you confirm (by typing `yes` if it erases
+anything). It asks, in order:
 
-**New machine:** choose *new host (this machine)* and give it a name. The installer makes
-`hosts/<name>/` as a copy of dev-hub with this machine's `hardware.nix`. After first login,
-remove the E16 quirks from its `default.nix` and commit the new folder.
+1. **Network**: a cable works by itself; for wifi it opens `nmtui`.
+2. **Host**: one from `hosts/`, or **a new host** for this machine: a name, then a checklist of
+   its features (dev-hub's as the start). It gets the shared desktop and this machine's `hardware.nix`;
+   commit `hosts/<name>/` after the first login.
+3. **Time zone**, e.g. `Europe/Vienna` (anything else is written into the host file).
+4. **Disk**: each one with what is on it now (`ntfs 200G, EFI 0G, ...`). The stick itself is not offered.
+5. **How much of it**:
+   - **the whole disk**: erases everything on it.
+   - **the free space** (when there is 30 GB or more): every partition stays; you choose how many GB to use.
+   - **replace one partition** (e.g. an old D: drive or another Linux): only that one is erased.
+   - **reinstall over the previous ophub NixOS**: replaces its two partitions, keeps the rest.
+   The last three need an EFI partition on that disk (Windows installed in UEFI mode).
+6. **Disk passphrase** (twice) and the **login password** for `oktav` (empty: `changeme`).
+7. **Summary**, then it installs, with the output live in a box. On failure it shows the end of the
+   log (`/tmp/hub-install.log`; on the installed system `/var/log/hub-install.log`).
 
-Or from another machine on the network: `hub install dev-hub <ip>`.
+It puts this repo at `~/tec/nix`; `git diff` there shows what the installer wrote into the host
+file (disk, dual boot, time zone).
 
-## 2b. Dual boot (keep Windows)
+Or from another machine on the network: `hub install dev-hub <ip>` (whole disk).
 
-1. In Windows: *Disk Management → Shrink volume* to free at least 50 GB. Turn off BitLocker
-   first (or have its recovery key) and turn off *Fast Startup*.
-2. Boot the stick, choose the host and the disk, then **free space next to Windows**.
+### Next to Windows
 
-The installer adds two partitions in the largest free space: `nixos-boot` (1 GB, holds the
-kernels, since Windows' own EFI partition is usually only 100 MB) and the encrypted `nixos-crypt`.
-It sets `hub.dualBoot` in the host file; Windows' EFI partition is mounted at `/efi`, never
-formatted. Windows shows up in the boot menu by itself. (Secure Boot via lanzaboote is not set up
-for this layout.)
+1. In Windows: *Disk Management → Shrink Volume* to free at least 50 GB. Have the BitLocker
+   recovery key at hand (Windows may ask for it once) and turn off *Fast Startup*.
+2. In the installer pick **the free space** (or **replace** a partition you no longer need).
+
+The installer adds two partitions there: `nixos-boot` (1 GB, holds the kernels, since Windows'
+own EFI partition is usually only 100 MB) and the encrypted `nixos-crypt`. It sets `hub.dualBoot`
+in the host file; Windows' EFI partition is mounted at `/efi`, never formatted. Windows shows up in
+the boot menu by itself. (Secure Boot via lanzaboote is not set up for this layout.)
 
 ## 3. First boot
 
-Disk passphrase, then you are logged in. First password is `changeme`.
+Disk passphrase, then log in as `oktav` with the password you chose (or `changeme`).
 
 ```sh
-passwd
+passwd                                     # if it is still changeme
 cd ~/tec/nix                               # put there by hub-install; otherwise git clone it there first
 git remote set-url origin git@github.com:okt4v/nixos_operations_hub.git   # push over ssh
 hub switch

@@ -1,0 +1,10 @@
+# Gruvbox colours. Edit a value, then run `theme apply`.
+kind=dark
+bg=282828
+fg=ebdbb2
+sel=504945
+mute=928374
+acc=fe8019
+ok=b8bb26
+warn=fabd2f
+crit=fb4934

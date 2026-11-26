@@ -113,7 +113,7 @@ pkill -USR2 waybar || true
 pkill -USR1 kitty || true
 tmux source-file "${XDG_CONFIG_HOME:-$HOME/.config}/tmux/tmux.conf" 2>/dev/null || true
 makoctl reload 2>/dev/null || true
-eww reload 2>/dev/null || true
+eww reload 2>/dev/null && widgets apply || true
 
 if [ "$(cat "$dir/$new/kind")" = light ]; then gtk=adw-gtk3 scheme=prefer-light; else gtk=adw-gtk3-dark scheme=prefer-dark; fi
 gsettings set org.gnome.desktop.interface gtk-theme "$gtk" 2>/dev/null || true

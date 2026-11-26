@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# test-install [dual] — install a small test host with the real installer in a
-# VM, boot it, unlock the disk over SSH (remote unlock), check it came up.
-# `dual` first puts a fake Windows (EFI + data partition) on the disk and
-# installs next to it. About 10 minutes each; needs KVM.
-#   bin/test-install [dual]    (hub test-install; CI runs both)
+# test-install [whole|dual|replace] — install a small test host with the real
+# installer (its no-questions mode) in a VM, boot it, unlock the disk over SSH
+# (remote unlock), check it came up. dual/replace first put a fake Windows
+# (EFI, C:, D:) on the disk; dual installs into the free space after it,
+# replace over D:. About 10 minutes each; needs KVM.
+#   bin/test-install [mode]    (hub test-install; CI runs all three)
 set -euo pipefail
 mode=${1:-whole}
 repo=$(dirname "$(dirname "$(readlink -f "$0")")")
@@ -15,7 +16,7 @@ expect=$(tool expect)/bin/expect
 ovmf=$(tool OVMF.fd)/FV
 ssh-keygen -q -t ed25519 -N "" -f key
 cp "$ovmf/OVMF_VARS.fd" vars.fd && chmod u+w vars.fd
-qemu-img create -q -f qcow2 disk.qcow2 30G
+qemu-img create -q -f qcow2 disk.qcow2 80G
 
 # The real ISO plus a throwaway host `smoke` (core + disk + boot + remote
 # unlock, 1.5 GB) and this run's ssh key.
@@ -63,35 +64,20 @@ echo "booting the ISO"
 vm -cdrom "$iso" -boot order=d
 up 2224
 
-how=whole
-if [ "$mode" = dual ]; then
-  how=free
-  echo "making a fake Windows: EFI partition with a marker file, a 5G data partition"
-  s 'sgdisk -n 0:0:+100M -t 0:ef00 -n 0:0:+5G -t 0:0700 /dev/vda && udevadm settle &&
+layout=whole
+if [ "$mode" != whole ]; then
+  echo "making a fake Windows: EFI partition with a marker file, a 5G C: and a 32G D: partition"
+  s 'sgdisk -n 0:0:+100M -t 0:ef00 -n 0:0:+5G -t 0:0700 -n 0:0:+32G -t 0:0700 /dev/vda && udevadm settle &&
      mkfs.vfat /dev/vda1 >/dev/null && mount /dev/vda1 /mnt && mkdir -p /mnt/EFI/Microsoft &&
      touch /mnt/EFI/Microsoft/windows && umount /mnt'
+  # dual: into the free space after it; replace: over D:
+  if [ "$mode" = dual ]; then layout=free; else layout=/dev/vda3; fi
 fi
 
 echo "running hub-install, $mode (log: install.log)"
-cat > install.exp <<EXP
-set timeout 3600
-spawn ssh ${opts[*]} -tt -p 2224 root@localhost hub-install
-expect -re {(\d+)\) smoke} { set n \$expect_out(1,string) }
-expect "#? " { send "\$n\r" }
-expect "Disk to install on"
-expect -re {(\d+)\) /dev/vda} { set n \$expect_out(1,string) }
-expect "#? " { send "\$n\r" }
-expect -re {(\d+)\) $how} { set n \$expect_out(1,string) }
-expect "#? " { send "\$n\r" }
-expect "Type yes" { send "yes\r" }
-expect {
-  -re "(?i)(passphrase|verify|password).*: ?\$" { send "test\r"; exp_continue }
-  "Enter to reboot" { exit 0 }
-  eof { exit 1 }
-  timeout { exit 2 }
-}
-EXP
-"$expect" install.exp > install.log 2>&1 || { tail -30 install.log; echo "FAIL: installer" >&2; exit 1; }
+s "printf test > /tmp/pp && hub-install --host smoke --disk /dev/vda --layout $layout --passphrase-file /tmp/pp \
+     --password pw --timezone America/New_York --yes" > install.log 2>&1 \
+  || { tail -30 install.log; echo "FAIL: installer" >&2; exit 1; }
 kill "$(cat qemu.pid)"; sleep 2
 
 echo "booting the installed disk, unlocking over SSH"
@@ -112,12 +98,17 @@ for _ in $(seq 40); do "$expect" unlock.exp > unlock.log 2>&1 && { ok=1; break; 
 [ -n "$ok" ] || { tail -20 unlock.log; echo "FAIL: remote unlock" >&2; exit 1; }
 up 2224
 # shellcheck disable=SC2016 # runs in the VM
-s 'grep -q "ophub NixOS" /etc/os-release && [ "$(stat -c %U /home/oktav/tec/nix/flake.nix)" = oktav ]' \
+s 'grep -q "ophub NixOS" /etc/os-release && [ "$(stat -c %U /home/oktav/tec/nix/flake.nix)" = oktav ] &&
+   readlink /etc/localtime | grep -q New_York' \
   || { echo "FAIL: installed system" >&2; exit 1; }
-if [ "$mode" = dual ]; then
+if [ "$mode" != whole ]; then
   # shellcheck disable=SC2016 # runs in the VM
   s '[ -f /efi/EFI/Microsoft/windows ] && [ "$(lsblk -no PARTTYPE /dev/vda2)" = ebd0a0a2-b9e5-4433-87c0-68b6b72699c7 ] &&
-     findmnt -no SOURCE /boot | grep -q vda3 && ls /boot/EFI/nixos >/dev/null' \
+     [ "$(lsblk -no PARTLABEL "$(findmnt -no SOURCE /boot)")" = nixos-boot ] && ls /boot/EFI/nixos >/dev/null' \
     || { echo "FAIL: dual boot layout" >&2; exit 1; }
+  # dual keeps D:, replace has put nixos-boot where it was
+  # shellcheck disable=SC2016 # runs in the VM
+  [ "$mode" = replace ] || s '[ "$(lsblk -no PARTTYPE /dev/vda3)" = ebd0a0a2-b9e5-4433-87c0-68b6b72699c7 ]' \
+    || { echo "FAIL: D: is gone" >&2; exit 1; }
 fi
 echo "PASS ($mode): installed, booted, unlocked over SSH, repo at hub.dir"

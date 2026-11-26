@@ -31,6 +31,7 @@ set_one() { # set_one <name> on|off
 refresh() { pkill -USR1 -f 'bin/widgets watch' 2>/dev/null || true; }
 
 case ${1:-menu} in
+  apply) apply ;; # after `eww reload` (theme), which resets the show_ vars
   list) for n in $(names); do printf '%-4s %s\n' "$(is_on "$n" && echo on || echo off)" "$n"; done ;;
   on | off) set_one "${2:?usage: widgets on|off <name>}" "$1" ;;
   show) rm -f "$state/widgets-hidden"; refresh ;;

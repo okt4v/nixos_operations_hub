@@ -1,0 +1,10 @@
+# Solarized (light) colours. Edit a value, then run `theme apply`.
+kind=light
+bg=fdf6e3
+fg=586e75
+sel=eee8d5
+mute=93a1a1
+acc=268bd2
+ok=859900
+warn=b58900
+crit=dc322f

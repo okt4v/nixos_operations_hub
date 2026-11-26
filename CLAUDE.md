@@ -33,8 +33,9 @@ Flake for the user's machines. Lives at `~/tec/nix` on an installed host (`hub.d
 - `hub feature [list|on|off <name>]` — feature flags of this host
 - `hub status` (overview), `hub doctor` (open setup steps), `hub health` (problems), `hub diff` (what a switch would change)
 - `widgets list|on|off <name>|show|hide|pos top|bottom` — wallpaper dashboard; state in `config/eww/widgets.conf`
+- `theme [name|apply|list]` — the theme manager (palettes in `config/palette/`); `settings` — eww window for palette and widgets (`Super+Shift+W`)
 - `pj` jump to a project, `pj -s <plan|wip|paused|done>` set its status, `pj -l` list
 - `hub check` — evaluates all hosts and shellchecks `bin/` and sway scripts; CI (`.github/workflows/ci.yml`) runs it on every push, and on `main` builds the ISO and runs `hub test-install`
-- `hub iso` / `bin/build-iso` (also on non-NixOS), `hub flash` (to USB), `hub test-install [dual]` (installer end to end in a VM, ~10 min; also tests remote unlock); the installer itself is `hub-install` in `hosts/iso/default.nix`
+- `hub iso` / `bin/build-iso` (also on non-NixOS), `hub flash` (to USB), `hub test-install [whole|dual|replace]` (installer end to end in a VM, ~10 min; also tests remote unlock); the installer itself is the TUI `hosts/iso/hub-install.sh` (dialog; `--yes` + flags for no questions)
 - `hub vm [host]` — boot a host in a throwaway VM (ssh -p 2222 oktav@localhost, password `test`); the repo is shared at `hub.dir`. The session locks after 10 idle minutes
 - New files must be `git add`ed before nix sees them

@@ -47,7 +47,7 @@
       checks.x86_64-linux.scripts =
         pkgs.runCommand "shellcheck-scripts" { nativeBuildInputs = [ pkgs.shellcheck ]; }
           ''
-            shellcheck --severity=warning ${./bin}/* ${./config/sway/scripts}/*.sh
+            shellcheck --severity=warning ${./bin}/* ${./config/sway/scripts}/*.sh ${./hosts/iso/hub-install.sh}
             touch $out
           '';
 

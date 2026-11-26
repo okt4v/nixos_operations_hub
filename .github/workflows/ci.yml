@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        mode: [whole, dual]
+        mode: [whole, dual, replace]
     steps:
       - name: enable KVM
         run: |

@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# settings — a window to click the look together: palette (theme) and the
+# wallpaper widgets. Super+Shift+W opens and closes it.
+#   settings            open/close the window (eww, config/eww/eww.yuck)
+#   settings json       its state as JSON (palettes, widgets, dashboard)
+#   settings do <cmd>   what a click runs: `theme <name>` or `widgets ...`
+# Every change is the same as the command line: `theme`, `widgets`.
+set -eu
+
+pal=${XDG_CONFIG_HOME:-$HOME/.config}/pal
+state=${XDG_STATE_HOME:-$HOME/.local/state}/hub
+hub=$(dirname "$(dirname "$(readlink -f "$0")")")
+
+json() {
+  local cur
+  cur=$(readlink "$pal/current" 2>/dev/null || echo dark)
+  printf '{"palettes":['
+  local sep=
+  for f in "$hub"/config/palette/*; do
+    # shellcheck disable=SC2034 # read through the printf below
+    local name kind bg fg sel mute acc ok warn crit
+    name=$(basename "$f")
+    # shellcheck source=/dev/null
+    . "$f"
+    printf '%s{"name":"%s","bg":"%s","fg":"%s","acc":"%s","ok":"%s","crit":"%s","current":%s}' \
+      "$sep" "$name" "$bg" "$fg" "$acc" "$ok" "$crit" "$([ "$name" = "$cur" ] && echo true || echo false)"
+    sep=,
+  done
+  printf '],"widgets":['
+  sep=
+  while read -r st name; do
+    printf '%s{"name":"%s","on":%s}' "$sep" "$name" "$([ "$st" = on ] && echo true || echo false)"
+    sep=,
+  done < <(widgets list)
+  printf '],"hidden":%s,"pos":"%s"}\n' "$([ -e "$state/widgets-hidden" ] && echo true || echo false)" \
+    "$(cat "$state/widgets-pos" 2>/dev/null || echo bottom)"
+}
+refresh() { eww update settings="$(json)"; }
+
+case ${1:-} in
+  json) json ;;
+  do)
+    shift
+    case ${1:-} in theme | widgets) "$@" >/dev/null ;; *) echo "settings: do theme|widgets ..." >&2; exit 1 ;; esac
+    # `theme` reloads eww, which closes this window and resets its state
+    [ "$1" != theme ] || eww open settings >/dev/null 2>&1
+    refresh
+    ;;
+  '')
+    eww daemon >/dev/null 2>&1 || true
+    if eww active-windows 2>/dev/null | grep -q '^settings'; then eww close settings; else refresh; eww open settings; fi
+    ;;
+  *) echo "usage: settings [json|do <cmd>]" >&2; exit 1 ;;
+esac

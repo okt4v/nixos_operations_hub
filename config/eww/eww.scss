@@ -20,3 +20,14 @@
 .dim { color: $mute; }
 .bad { color: $crit; }
 .mono { font-family: "Share Tech Mono"; }
+
+// Settings window
+.settings { background-color: $bg; border: 1px solid $acc; padding: 0 0 10px 0; }
+.settings .head { color: $acc; padding: 0 10px; }
+.settings .body { padding: 0 10px; }
+.settings .row { padding: 3px 8px; border: 1px solid $sel; }
+.settings .row:hover { border-color: $acc; }
+.settings .row.on { background-color: $sel; }
+.settings .swatch { padding: 0 4px; border: 1px solid; }
+.settings .close { padding: 0 6px; color: $bg; }
+.settings .dim { padding: 0 10px; }

@@ -30,7 +30,7 @@ The repo lives at `~/tec/nix`.
   `hub test` activates until the next reboot only; `hub rollback` returns to the previous generation.
 - `hub diff` shows which packages a switch would change. `hub check` evaluates all hosts and lints the scripts.
 - **CI** (GitHub Actions) runs the same check on every push. On `main` it also builds the installer ISO
-  (download it from the run's *Artifacts*) and runs `hub test-install`.
+  (download it from the run's *Artifacts*) and runs `hub test-install` in all three layouts.
 - New files must be `git add`ed before nix sees them.
 - **Updates:** a weekly timer prepares an update on the branch `upd` and notifies you. `hub update` applies it.
 - `hub gc` deletes old generations (keeps 5). `hub search <words>` searches nixpkgs. `, <program>` runs a program once without installing it.
@@ -72,9 +72,12 @@ and the secret is in it.
 
 ## Look
 
-Black and amber, square corners, one monospace font. The colours are eight values in
-`config/palette/dark` (and `light`): edit the file, run `theme apply`, and every app follows.
-A new file in that folder is a new palette: `theme <name>`. `theme list` shows them.
+Black and amber, square corners, one monospace font. `theme` is the theme manager: one palette
+of eight colours for every app (sway, waybar, kitty, tmux, fuzzel, mako, eww, fastfetch, GTK, nvim).
+Palettes: dark (default), light, nord, gruvbox, catppuccin, solarized. Pick one by click in the
+**settings window** (`Super+Shift+W` or `settings`), or `theme <name>`; `theme` alone toggles dark
+and light. Each palette is a file in `config/palette/`: edit it and run `theme apply`; a new file is a
+new palette.
 `fastfetch` shows the ophub logo in the accent colour.
 
 ## Desktop
@@ -91,6 +94,7 @@ A new file in that folder is a new palette: `theme <name>`. `theme list` shows t
 | `Super+R` / `Super+Shift+R` | Resize / move mode (`Esc` leaves) |
 | `Super+C` | Clipboard history |
 | `Super+T` | Toggle the dark and light palette, everywhere, instantly |
+| `Super+Shift+W` | Settings window: palette and wallpaper widgets by click |
 | `Alt+Ctrl+L` | Lock |
 
 **The menu** (`Super+Shift+Space`) has these sections: windows, projects, modes, widgets, hosts,
@@ -121,8 +125,9 @@ audio, wifi, bluetooth, vpn, night, wall, kill, pass, theme, power. The less obv
 **Monitors:** `hub mon` opens a drag-and-drop arranger; `hub mon save <name>` stores the layout
 as a profile that is applied automatically when those monitors are connected.
 
-**Wallpaper widgets** (`Super+Shift+W` or `widgets`): agenda, tasks, focus, projects, system, net,
-markets, weather, music, inbox, month, services. They show only on empty workspaces.
+**Wallpaper widgets**: agenda, tasks, focus, projects, system, net, markets, weather, music,
+inbox, month, services. They show only on empty workspaces. Switch them, the whole dashboard and
+its position by click in the settings window (`Super+Shift+W`), from the menu (`widgets`), or with
 `widgets on|off <name>`, `widgets show|hide`, `widgets pos top|bottom`.
 Location for the weather: `config/eww/weather.conf`.
 
@@ -229,7 +234,7 @@ most commands (carapace) in a fuzzy menu. `ls`/`la` list with lsd (git status co
   (a name and a URL per line). One that is down shows in the bar's health indicator and in the
   `services` widget.
 - `hp` picks a machine from the tailnet or SSH config and opens SSH with a resumed tmux session.
-- `hub deploy <host>` rebuilds a remote host from here; `hub install <host> <ip>` installs one. `hub iso` (or `bin/build-iso` on a machine without NixOS) builds the installer into `iso/`, `hub flash` writes it to a USB stick; on boot it starts `hub-install`. `hub test-install [dual]` installs a test host with it in a VM (~10 min; `dual` next to a fake Windows).
+- `hub deploy <host>` rebuilds a remote host from here; `hub install <host> <ip>` installs one. `hub iso` (or `bin/build-iso` on a machine without NixOS) builds the installer into `iso/`, `hub flash` writes it to a USB stick; on boot it starts `hub-install`, a menu-driven installer (whole disk, free space or one partition next to Windows; see docs/INSTALL.md). `hub test-install [whole|dual|replace]` installs a test host with it in a VM (~10 min; `dual` into free space next to a fake Windows, `replace` over one of its partitions).
 - `hub net` shows wifi, address, VPN and tailnet state.
 - `ask <question>` queries the local model (needs `hub.ai.enable`); it reads stdin too: `git diff | ask "review this"`.
 

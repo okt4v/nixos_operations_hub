@@ -1,0 +1,10 @@
+# Catppuccin (mocha) colours. Edit a value, then run `theme apply`.
+kind=dark
+bg=1e1e2e
+fg=cdd6f4
+sel=45475a
+mute=7f849c
+acc=cba6f7
+ok=a6e3a1
+warn=f9e2af
+crit=f38ba8

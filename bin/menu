@@ -77,7 +77,7 @@ case ${1:-} in
     [ -z "$pid" ] || kill "$pid"
     ;;
   pass) exec pad pass ;;
-  theme) exec theme ;;
+  theme) exec settings ;;
   power)
     case $(printf '%s\n' lock suspend logout reboot poweroff | pick power) in
       lock) loginctl lock-session ;;

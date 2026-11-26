@@ -59,7 +59,7 @@
     # console keymap so the disk passphrase is typed on the German layout.
     boot.initrd.systemd.enable = true;
 
-    time.timeZone = "Europe/Vienna";
+    time.timeZone = lib.mkDefault "Europe/Vienna"; # the installer may set another per host
     console = {
       keyMap = "de-latin1-nodeadkeys";
       earlySetup = true;
