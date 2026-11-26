@@ -337,7 +337,11 @@ fi
 # host key for remote unlock (modules/remote-unlock.nix); unused otherwise
 mkdir -p /mnt/var/lib/initrd-ssh
 ssh-keygen -q -t ed25519 -N "" -f /mnt/var/lib/initrd-ssh/ssh_host_ed25519_key
-run "Installing (downloads and builds; takes a while)" nixos-install --flake "$hub#$host" --no-root-passwd --no-channel-copy
+# this flake's own binary cache (hub.cache), if it has one: download instead of build
+cache=() url=$(nix eval --raw "$hub#nixosConfigurations.$host.config.hub.cache.url")
+[ -z "$url" ] || cache=(--option extra-substituters "$url" --option extra-trusted-public-keys \
+  "$(nix eval --raw "$hub#nixosConfigurations.$host.config.hub.cache.key")")
+run "Installing (downloads and builds; takes a while)" nixos-install --flake "$hub#$host" --no-root-passwd --no-channel-copy "${cache[@]}"
 
 # the repo at hub.dir, so dotfiles resolve and `hub switch` works at first login
 dir=$(nix eval --raw "$hub#nixosConfigurations.$host.config.hub.dir")

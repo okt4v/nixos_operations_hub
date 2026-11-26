@@ -79,8 +79,9 @@ in
         target = config.hub.dir;
         securityModel = "none";
       };
-      # swayfx needs GLES; virgl provides it inside QEMU.
-      qemu.options = [ "-device virtio-vga-gl" ];
+      # swayfx needs GLES; virgl provides it inside QEMU (needs a GPU on the
+      # host; bin/test-tools turns it off on CI)
+      qemu.options = lib.optional config.hub.vmGl "-device virtio-vga-gl";
     };
   };
 }

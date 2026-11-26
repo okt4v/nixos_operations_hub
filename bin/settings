@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # settings — a window to click the look together: palette (theme), wallpaper
-# (~/med/img/wall, remembered per palette) and the wallpaper widgets.
+# (~/med/img/wall, remembered per palette), the wallpaper widgets and the
+# optional apps (`apps`; installed by `hub switch`, the Apply button).
 # Super+Shift+W opens and closes it.
 #   settings            open/close the window (eww, config/eww/eww.yuck)
 #   settings json       its state as JSON (palettes, walls, widgets, dashboard)
-#   settings do <cmd>   what a click runs: `theme <name>` or `widgets ...`
+#   settings do <cmd>   what a click runs: `theme <name>`, `widgets ...`, `apps on|off <name>`
+#   settings apply      run `hub switch` in a terminal, for the apps picked here
 # Every change is the same as the command line: `theme`, `widgets`.
 set -eu
 
@@ -37,6 +39,8 @@ json() {
   printf '],"walls":%s' "$(find "$walls" -maxdepth 1 -type f -printf '%f\n' 2>/dev/null | sort |
     jq -Rnc --arg dir "$walls" --arg cur "$(readlink "$walls/current" 2>/dev/null)" \
       '[inputs | {name: ., path: ($dir + "/" + .), current: ($dir + "/" + . == $cur)}]')"
+  printf ',"apps":%s' "$(apps list 2>/dev/null | jq -Rnc '[inputs | capture("^(?<st>\\S+)\\s+(?<name>\\S+)\\s+(?<desc>.*)$") | {name, desc, on: (.st == "on")}]')"
+  printf ',"pending":%s' "$([ -e "$state/apps-pending" ] && echo true || echo false)"
   printf ',"hidden":%s,"pos":"%s"}\n' "$([ -e "$state/widgets-hidden" ] && echo true || echo false)" \
     "$(cat "$state/widgets-pos" 2>/dev/null || echo bottom)"
 }
@@ -46,14 +50,22 @@ case ${1:-} in
   json) json ;;
   do)
     shift
-    case ${1:-} in theme | widgets) "$@" >/dev/null ;; *) echo "settings: do theme|widgets ..." >&2; exit 1 ;; esac
+    case ${1:-} in
+      theme | widgets) "$@" >/dev/null ;;
+      apps) "$@" >/dev/null && touch "$state/apps-pending" ;; # installed by the next switch
+      *) echo "settings: do theme|widgets|apps ..." >&2; exit 1 ;;
+    esac
     # `theme` reloads eww, which closes this window and resets its state
     [ "$1 ${2:-}" = "theme wall" ] || [ "$1" != theme ] || eww open settings >/dev/null 2>&1
     refresh
+    ;;
+  apply) # install/remove the apps picked here: hub switch in a terminal (it asks for sudo)
+    eww close settings 2>/dev/null || true
+    exec kitty --hold sh -c "hub switch && rm -f '$state/apps-pending' && echo && echo 'Apps are in place.'"
     ;;
   '')
     eww daemon >/dev/null 2>&1 || true
     if eww active-windows 2>/dev/null | grep -q '^settings'; then eww close settings; else refresh; eww open settings; fi
     ;;
-  *) echo "usage: settings [json|do <cmd>]" >&2; exit 1 ;;
+  *) echo "usage: settings [json|do <cmd>|apply]" >&2; exit 1 ;;
 esac

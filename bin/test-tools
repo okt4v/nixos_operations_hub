@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# test-tools [host] — boot a host (default dev-hub) in a headless VM and run
+# `hub selftest` in it as its user: every tool in bin/ runs and finds the
+# programs it needs. Needs KVM; CI runs it on main. Without a GPU (CI) the
+# VM gets plain VGA instead of virgl, so sway may not start; the sway check
+# is then skipped and everything else still runs.
+#   bin/test-tools [host]    (hub test-tools)
+set -euo pipefail
+host=${1:-dev-hub}
+repo=$(dirname "$(dirname "$(readlink -f "$0")")")
+tmp=$(mktemp -d)
+trap 'kill "$(cat "$tmp/pid" 2>/dev/null)" 2>/dev/null || true; rm -rf "$tmp"' EXIT
+
+echo "building the $host VM"
+if [ -e /dev/dri/renderD128 ] && [ -z "${HUB_TEST_NOGL:-}" ]; then # HUB_TEST_NOGL=1: as in CI
+  vm=$(nix build --no-link --print-out-paths "$repo#nixosConfigurations.$host.config.system.build.vm")
+  display=egl-headless
+else
+  vm=$(nix build --no-link --print-out-paths --impure --expr "
+    ((builtins.getFlake \"git+file://$repo\").nixosConfigurations.$host.extendModules {
+      modules = [ { hub.vmGl = false; } ];
+    }).config.system.build.vm")
+  display=none
+fi
+
+echo "booting it (display: $display)"
+HUB_SRC=$repo NIX_DISK_IMAGE=$tmp/disk.qcow2 QEMU_OPTS="-display $display -pidfile $tmp/pid" \
+  setsid "$vm/bin/run-$host-vm" >"$tmp/vm.log" 2>&1 &
+
+sshpass=$(nix build --no-link --print-out-paths nixpkgs#sshpass)/bin/sshpass
+in_vm() {
+  "$sshpass" -p test ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    -o LogLevel=ERROR -o ConnectTimeout=3 -p 2222 oktav@localhost "$@" </dev/null
+}
+# up once ssh works and home-manager has put the user's PATH in place
+for i in $(seq 120); do
+  in_vm 'zsh -lc "command -v hub"' >/dev/null 2>&1 && break
+  [ "$i" -lt 120 ] || { tail -20 "$tmp/vm.log"; echo "FAIL: the VM never came up" >&2; exit 1; }
+  sleep 5
+done
+echo "running hub selftest in the VM"
+in_vm 'zsh -lc selftest'

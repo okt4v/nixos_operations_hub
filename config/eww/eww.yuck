@@ -70,13 +70,16 @@
 
 ;; Settings window (`settings`, Super+Shift+W): palette and widgets by click.
 ;; Its state comes from `settings json`; a click runs `settings do ...`.
-(defvar settings '{"palettes":[],"walls":[],"widgets":[],"hidden":false,"pos":"bottom"}')
+(defvar settings '{"palettes":[],"walls":[],"widgets":[],"apps":[],"pending":false,"hidden":false,"pos":"bottom"}')
 
 (defwidget settings-panel []
   (box :class "settings" :orientation "v" :space-evenly false :spacing 10
     (box :class "title" :space-evenly false
       (label :hexpand true :xalign 0 :text "SETTINGS")
       (button :class "close" :onclick "eww close settings" "×"))
+    ;; everything below scrolls; the window is at most 90% of the screen high
+    (scroll :vscroll true :hscroll false :vexpand true
+    (box :orientation "v" :space-evenly false :spacing 10
     (label :class "head" :xalign 0 :text "THEME   every app follows, instantly")
     (box :class "body" :orientation "v" :spacing 4 :space-evenly false
       (for p in {settings.palettes}
@@ -109,9 +112,17 @@
         (for w in {settings.widgets}
           (button :class "row ${w.on ? 'on' : ''}" :onclick "settings do widgets ${w.on ? 'off' : 'on'} ${w.name}"
             (label :xalign 0 :text "${w.on ? '[x]' : '[ ]'} ${w.name}")))))
-    (label :class "dim" :xalign 0 :text "same as: theme <name>, widgets on|off <name>")))
+    (label :class "head" :xalign 0 :text "APPS   installed by Apply (hub switch)")
+    (box :class "body" :orientation "v" :spacing 4 :space-evenly false
+      (box :orientation "v" :spacing 4 :space-evenly false
+        (for a in {settings.apps}
+          (button :class "row ${a.on ? 'on' : ''}" :tooltip {a.desc} :onclick "settings do apps ${a.on ? 'off' : 'on'} ${a.name}"
+            (label :xalign 0 :limit-width 44 :text "${a.on ? '[x]' : '[ ]'} ${a.name}   ${a.desc}"))))
+      (button :class "row apply ${settings.pending ? 'on' : ''}" :onclick "settings apply &"
+        "${settings.pending ? '● Apply: install / remove now' : 'Apply (nothing changed)'}"))
+    (label :class "dim" :xalign 0 :text "same as: theme <name>, widgets on|off <name>, apps on|off <name>")))))
 
 (defwindow settings
   :monitor 0 :stacking "overlay" :exclusive false :focusable false
-  :geometry (geometry :x "16px" :y "40px" :width "380px" :anchor "top right")
+  :geometry (geometry :x "16px" :y "40px" :width "380px" :height "90%" :anchor "top right")
   (settings-panel))

@@ -80,6 +80,10 @@ feature *args:
 selftest:
     @bin/selftest
 
+# boot a host (default dev-hub) headless in a VM and run hub selftest in it (KVM; CI runs it)
+test-tools *args:
+    @bin/test-tools {{ args }}
+
 # install/remove optional apps (anki, spotify, gimp, ...): menu, or hub apps list|on|off <name>
 apps *args:
     @bin/apps {{ args }}

@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# test-install [whole|dual|replace] — install a small test host with the real
-# installer (its no-questions mode) in a VM, boot it, unlock the disk over SSH
-# (remote unlock), check it came up. dual/replace first put a fake Windows
-# (EFI, C:, D:) on the disk; dual installs into the free space after it,
-# replace over D:. About 10 minutes each; needs KVM.
-#   bin/test-install [mode]    (hub test-install; CI runs all three)
+# test-install [whole|dual|replace|tui] — install a small test host with the
+# real installer in a VM, boot it, unlock the disk over SSH (remote unlock),
+# check it came up. dual/replace/tui first put a fake Windows (EFI, C:, D:)
+# on the disk; dual installs into the free space after it, replace over D:.
+# whole/dual/replace use the installer's no-questions mode; tui goes through
+# its menus by keystroke like a person (tmux): first a new host with its
+# feature and app lists up to the summary (cancelled), then a real install
+# into the free space. About 10 minutes each; needs KVM.
+#   bin/test-install [mode]    (hub test-install; CI runs all four)
 set -euo pipefail
 mode=${1:-whole}
 repo=$(dirname "$(dirname "$(readlink -f "$0")")")
@@ -70,15 +73,62 @@ if [ "$mode" != whole ]; then
   s 'sgdisk -n 0:0:+100M -t 0:ef00 -n 0:0:+5G -t 0:0700 -n 0:0:+32G -t 0:0700 /dev/vda && udevadm settle &&
      mkfs.vfat /dev/vda1 >/dev/null && mount /dev/vda1 /mnt && mkdir -p /mnt/EFI/Microsoft &&
      touch /mnt/EFI/Microsoft/windows && umount /mnt'
-  # dual: into the free space after it; replace: over D:
-  if [ "$mode" = dual ]; then layout=free; else layout=/dev/vda3; fi
+  # dual (and tui): into the free space after it; replace: over D:
+  if [ "$mode" = replace ]; then layout=/dev/vda3; else layout=free; fi
 fi
 
+if [ "$mode" = tui ]; then
+  echo "driving the installer's menus (screen: tui.txt)"
+  tmux=$(tool "tmux^out")/bin/tmux
+  T() { "$tmux" -L "hubtest$$" "$@"; }
+  trap 'T kill-server 2>/dev/null; kill "$(cat "$tmp/qemu.pid" 2>/dev/null)" 2>/dev/null || true; rm -rf "$tmp"' EXIT
+  start() { T kill-server 2>/dev/null || true; T new -d -s t -x 120 -y 40 "TERM=linux ssh ${opts[*]} -tt -p 2224 root@localhost hub-install; sleep 7200"; }
+  shown() { T capture-pane -p -t t >tui.txt; grep -qF -- "$1" tui.txt; }
+  see() { # see <text> [seconds]: wait until the screen shows it
+    for _ in $(seq "${2:-90}"); do shown "$1" && return; sleep 1; done
+    cat tui.txt; echo "FAIL: the installer never showed: $1" >&2; exit 1
+  }
+  key() { T send-keys -t t "$@"; sleep 0.7; }
+  type_() { key C-u; T send-keys -t t -l "$1"; sleep 0.3; key Enter; } # replace an input field
+  answers() { # time zone .. login password, the same in both passes
+    see " Time zone "; type_ America/New_York
+    see " Disk "; key Enter
+    see " How "; shown "Use the free space" || { cat tui.txt; echo "FAIL: no free-space choice" >&2; exit 1; }
+    key Enter # free space is the default
+    see " Size "; type_ 35
+    see " Disk passphrase "; type_ test; see "Once more"; type_ test
+    see " Login password "; type_ pw; see "Once more"; type_ pw
+    see " Ready "
+  }
+  # pass 1: a new host, its features and apps; stop at the summary
+  start
+  see "Welcome to ophub NixOS"; key Enter
+  see " Keyboard "; key u; key Enter
+  see " Host "; key End; key Enter
+  see " New host "; type_ tui-test
+  see " Features "; key Space; key Enter
+  see " Apps "; key Space; key Enter
+  answers
+  for t in "tui-test (new)" "America/New_York" "Keyboard:   us" "Uses 35 GiB"; do
+    shown "$t" || { cat tui.txt; echo "FAIL: summary lacks: $t" >&2; exit 1; }
+  done
+  key Enter # the default is No: nothing is installed
+  # pass 2: the small test host, installed for real
+  start
+  see "Welcome to ophub NixOS"; key Enter
+  see " Keyboard "; key u; key Enter
+  see " Host "; key s; key Enter
+  answers
+  key i # Install
+  see " Header backup " 3600; key Tab; key Enter # Skip
+  see " Done " 120
+else
 echo "running hub-install, $mode (log: install.log)"
 s "printf test > /tmp/pp && hub-install --host smoke --disk /dev/vda --layout $layout --passphrase-file /tmp/pp \
      --password pw --timezone America/New_York --keyboard us --header-backup /tmp/hdr.img --yes" > install.log 2>&1 \
   || { tail -30 install.log; echo "FAIL: installer" >&2; exit 1; }
 s 'cryptsetup luksDump /tmp/hdr.img >/dev/null' || { echo "FAIL: no LUKS header backup" >&2; exit 1; }
+fi
 kill "$(cat qemu.pid)"; sleep 2
 
 echo "booting the installed disk, unlocking over SSH"
