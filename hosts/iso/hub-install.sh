@@ -16,6 +16,7 @@ set -euo pipefail
 [ "$(id -u)" = 0 ] || exec sudo "$0" "$@"
 
 title="ophub NixOS installer"
+dopts=(--backtitle "$title" --cr-wrap --no-collapse) # texts keep their newlines and spacing
 log=/tmp/hub-install.log
 hub=/tmp/hub
 esp_type=c12a7328-f81f-11d2-ba4b-00a0c93ec93b
@@ -44,19 +45,19 @@ done
 # d <dialog args>: prints the answer. Cancel/Esc offers to quit, else asks again.
 d() {
   local out
-  if out=$(dialog --backtitle "$title" "$@" 3>&1 1>&2 2>&3); then printf '%s' "$out"; return; fi
+  if out=$(dialog "${dopts[@]}" "$@" 3>&1 1>&2 2>&3); then printf '%s' "$out"; return; fi
   # runs inside $(...): end the whole installer, not just this subshell
-  dialog --backtitle "$title" --yesno "Quit the installer?\n\nNothing has been changed yet. hub-install starts it again." 8 60 3>&1 1>&2 2>&3 && { clear >&2; kill "$$"; exit 1; }
+  dialog "${dopts[@]}" --yesno "Quit the installer?\n\nNothing has been changed yet. hub-install starts it again." 8 60 3>&1 1>&2 2>&3 && { clear >&2; kill "$$"; exit 1; }
   d "$@"
 }
-msg() { if [ -n "$tui" ]; then dialog --backtitle "$title" --msgbox "$1" 0 0; else echo "$1"; fi; }
+msg() { if [ -n "$tui" ]; then dialog "${dopts[@]}" --msgbox "$1" 0 0; else echo "$1"; fi; }
 die() { msg "$1"; exit 1; }
 
 # run <title> <cmd...>: output goes to the log and, live, into a box
 run() {
   echo "=== $1" >>"$log"
   if [ -n "$tui" ]; then
-    "${@:2}" 2>&1 | tee -a "$log" | dialog --backtitle "$title" --title " $1 " --progressbox 22 90
+    "${@:2}" 2>&1 | tee -a "$log" | dialog "${dopts[@]}" --title " $1 " --progressbox 22 90
   else
     echo "=== $1"; "${@:2}" 2>&1 | tee -a "$log"
   fi
@@ -64,7 +65,7 @@ run() {
 failed() {
   local rc=$?
   [ -n "$tui" ] || { echo "FAILED, log: $log" >&2; exit "$rc"; }
-  dialog --backtitle "$title" --title " Installation failed " --msgbox \
+  dialog "${dopts[@]}" --title " Installation failed " --msgbox \
     "$(tail -n 18 "$log")\n\nFull log: $log (less $log)" 0 0 || true
   clear; exit "$rc"
 }
@@ -89,11 +90,13 @@ parts() { # parts <disk>: one line per partition: name parttype fstype bytes par
 describe() { # describe <disk>: a short summary of what is on it
   local out="" name pt fs bytes _
   while read -r name pt fs bytes _; do
-    [ "$pt" = "$esp_type" ] && fs=EFI
-    [ "$pt" = "$msr_type" ] && continue
-    out+="${fs} $(( bytes / 1073741824 ))G, "
+    [ "$pt" != "$esp_type" ] || fs=EFI
+    [ "$pt" != "$msr_type" ] || continue
+    [ "$fs" != - ] || fs=unformatted
+    out+="$fs $(numfmt --to=iec "$bytes"), "
   done < <(parts "$1")
-  echo "${out:-empty, }"
+  out=${out%, }
+  echo "${out:-empty}"
 }
 
 # --- 1. welcome, network ----------------------------------------------------------
@@ -101,12 +104,10 @@ trap failed ERR
 : >"$log"
 if [ -n "$tui" ]; then
   ip=$(ip -4 -o addr show scope global | awk '{ sub("/.*", "", $4); print $4; exit }' || true)
-  dialog --backtitle "$title" --yes-label Install --no-label Shell --yesno \
+  dialog "${dopts[@]}" --yes-label Install --no-label Shell --yesno \
 "Welcome to ophub NixOS.
 
-This installs ophub NixOS onto a disk of this computer: the whole disk, or
-only free space or one partition next to Windows or another system.
-Nothing is changed before the summary at the end.
+This installs ophub NixOS onto a disk of this computer: the whole disk, or only free space or one partition next to Windows or another system. Nothing is changed before the summary at the end.
 
 Shell: leave the installer (start it again with: hub-install)
 ${ip:+From another machine: hub install <host> $ip}" 15 76 || { clear; exit 0; }
@@ -143,7 +144,7 @@ if [ -z "$host" ]; then
   items=()
   while read -r h; do items+=("$h" "$(sed -n '1s/^# *//p' "$hub/hosts/$h/default.nix" | cut -c1-50)"); done \
     < <(find "$hub/hosts" -mindepth 1 -maxdepth 1 -type d ! -name iso -printf '%f\n' | sort)
-  host=$(d --title " Host " --menu "Which configuration to install. A new host gets the shared desktop, the features you pick, and this machine's hardware." 0 76 0 \
+  host=$(d --title " Host " --menu "Which configuration to install. A new host gets the shared desktop, the features you pick, and this machine's hardware." $(( ${#items[@]} / 2 + 10 )) 76 $(( ${#items[@]} / 2 + 1 )) \
     "${items[@]}" "+new" "a new host for this machine")
 fi
 if [ "$host" = "+new" ]; then
@@ -197,10 +198,10 @@ if [ -z "$disk" ]; then
   items=()
   while read -r name bytes model; do
     [[ $name == /dev/zram* || $name == "/dev/$boot" ]] && continue
-    items+=("$name" "$(( bytes / 1000000000 ))GB ${model:-disk}: $(describe "$name")")
+    items+=("$name" "$(numfmt --to=iec "$bytes") ${model:-disk}: $(describe "$name")")
   done < <(lsblk -dpnbo NAME,SIZE,MODEL -e 2,7,11)
   [ ${#items[@]} -gt 0 ] || die "No disk found to install on."
-  disk=$(d --title " Disk " --menu "Install onto which disk? (what is on it now in brackets)" 0 90 0 "${items[@]}")
+  disk=$(d --title " Disk " --menu "Install onto which disk? After the size: what is on it now." 0 90 $(( ${#items[@]} / 2 )) "${items[@]}")
 fi
 [ -b "$disk" ] || die "$disk is not a disk."
 
@@ -217,14 +218,17 @@ if [ -z "$layout" ]; then
     [ "$(echo "$old" | wc -w)" != 2 ] || items+=(ophub "Reinstall over the previous ophub NixOS, keep the rest")
     while read -r name pt fs bytes _ label; do
       [ "$pt" = "$esp_type" ] || [ "$pt" = "$msr_type" ] || [[ " $old " == *" $name "* ]] && continue
-      items+=("$name" "Replace this partition only: $fs $(( bytes / 1073741824 ))G $label")
+      [ "$fs" != - ] || fs=unformatted
+      items+=("$name" "Replace this partition only: $fs $(numfmt --to=iec "$bytes") $label")
     done < <(parts "$disk")
     note="Windows (or another system) stays and appears in the boot menu."
     [ "$free_gib" -ge 30 ] || note+="\nNo free space of 30 GiB or more: shrink Windows first (Disk Management, Shrink Volume)."
   else
     note="Sharing the disk needs an EFI partition on it (Windows installed in UEFI mode)."
   fi
-  layout=$(d --title " How " --menu "$note" 0 90 0 "${items[@]}")
+  def=whole # the free space, if there is enough, is the safe default
+  [ "${items[2]:-}" != free ] || def=free
+  layout=$(d --title " How " --default-item "$def" --menu "$note" 0 90 $(( ${#items[@]} / 2 )) "${items[@]}")
 fi
 
 dual='' replace=() start='' end=''
@@ -273,7 +277,7 @@ upass=${upass:-changeme}
 
 # --- 8. summary --------------------------------------------------------------------------
 case $layout in
-  whole) what="ERASES ALL OF $disk ($(describe "$disk" | sed 's/, $//'))" ;;
+  whole) what="ERASES ALL OF $disk ($(describe "$disk"))" ;;
   free) what="Uses $size GiB of the free space on $disk; every partition stays" ;;
   *) what="ERASES ${replace[*]} on $disk; every other partition stays" ;;
 esac
@@ -290,7 +294,7 @@ Layout:     $shared
 User:       oktav$warn"
 if [ -n "$tui" ]; then
   if [ "$layout" = free ]; then
-    dialog --backtitle "$title" --title " Ready " --defaultno --yes-label Install --yesno "$summary" 0 0 || { clear; exit 0; }
+    dialog "${dopts[@]}" --title " Ready " --defaultno --yes-label Install --yesno "$summary" 0 0 || { clear; exit 0; }
   else
     [ "$(d --title " Ready " --inputbox "$summary\n\nThis erases data. Type yes to install:" 0 0)" = yes ] || { clear; exit 0; }
   fi
@@ -345,13 +349,12 @@ printf 'oktav:%s\n' "$upass" | nixos-enter --root /mnt -c chpasswd >>"$log" 2>&1
 # the passphrase alone cannot open the disk any more
 luksdev=$(cryptsetup status crypt | awk '$1 == "device:" { print $2 }')
 if [ -z "$hdr" ] && [ -n "$tui" ] &&
-  dialog --backtitle "$title" --title " Header backup " --yes-label Save --no-label Skip --yesno \
+  dialog "${dopts[@]}" --title " Header backup " --yes-label Save --no-label Skip --yesno \
 "Save a backup of the disk's encryption header to another USB stick?
 
-If the header at the start of the encrypted partition is ever damaged,
-the passphrase alone cannot open the disk. With this file it can:
+If the header at the start of the encrypted partition is ever damaged, the passphrase alone cannot open the disk. With this file it can:
   cryptsetup luksHeaderRestore <partition> --header-backup-file <file>
-It is useless without the passphrase. Plug in the stick now." 14 76; then
+It is useless without the passphrase. Plug in the stick now." 15 76; then
   boot=$(lsblk -no PKNAME "$(findmnt -no SOURCE /iso)" 2>/dev/null || true)
   until [ -n "$hdr" ]; do
     items=()
@@ -360,10 +363,10 @@ It is useless without the passphrase. Plug in the stick now." 14 76; then
       items+=("$name" "$fs $(( bytes / 1000000000 ))GB")
     done < <(lsblk -lpnbo NAME,SIZE,FSTYPE,PKNAME | awk 'NF == 4 && $3 ~ /^(vfat|exfat|ext4|ntfs)$/')
     if [ ${#items[@]} -eq 0 ]; then
-      dialog --backtitle "$title" --yes-label "Look again" --no-label Skip --yesno "No USB stick with a filesystem found." 7 50 || break
+      dialog "${dopts[@]}" --yes-label "Look again" --no-label Skip --yesno "No USB stick with a filesystem found." 7 50 || break
       continue
     fi
-    p=$(dialog --backtitle "$title" --menu "Save it on:" 0 50 0 "${items[@]}" 3>&1 1>&2 2>&3) || break
+    p=$(dialog "${dopts[@]}" --menu "Save it on:" 0 50 0 "${items[@]}" 3>&1 1>&2 2>&3) || break
     mkdir -p /run/hub-usb && mount "$p" /run/hub-usb && hdr=/run/hub-usb/ophub-$host-luks-header.img
   done
 fi
@@ -383,7 +386,7 @@ The repo is at $dir$([ -z "$new" ] || echo "; commit hosts/$host there").
 The install log is /var/log/hub-install.log."
 [ "$upass" != changeme ] || done_msg+="\nThe password is changeme: change it with passwd."
 if [ -n "$tui" ]; then
-  dialog --backtitle "$title" --title " Done " --yes-label Reboot --no-label Shell --yesno "$done_msg" 0 0 && reboot
+  dialog "${dopts[@]}" --title " Done " --yes-label Reboot --no-label Shell --yesno "$done_msg" 0 0 && reboot
   clear
 else
   echo "$done_msg"
