@@ -8,6 +8,7 @@
   ];
 
   hub.disk = "/dev/nvme0n1";
+  hub.apps = import ./apps.nix;
 
   # ── Wifi ─────────────────────────────────────────────────────────────────
   # rtw89 (RTL8852CE) drops/reconnects randomly with power save on.

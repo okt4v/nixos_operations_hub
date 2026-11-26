@@ -1,4 +1,4 @@
-# Games and creative tools.
+# Games: Steam, Roblox (Sober), wine.
 { inputs, pkgs, ... }:
 
 {
@@ -28,16 +28,6 @@
     "L+ /usr/share/fonts - - - - /run/current-system/sw/share/X11/fonts"
   ];
 
-  environment.systemPackages = with pkgs; [
-    godot
-    aseprite
-    wine
-    # Blender's Wayland backend misbehaves under sway; run it through XWayland.
-    (symlinkJoin {
-      name = "blender";
-      paths = [ blender ];
-      nativeBuildInputs = [ makeWrapper ];
-      postBuild = "wrapProgram $out/bin/blender --unset WAYLAND_DISPLAY";
-    })
-  ];
+  # godot, aseprite, blender: optional apps (hosts/<host>/apps.nix)
+  environment.systemPackages = [ pkgs.wine ];
 }

@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# selftest — do the tools in bin/ work on this machine? Runs each one's
+# read-only commands (nothing is written, opened or sent) and checks that
+# every program they call is installed. Prints one line per check, exits
+# non-zero if one fails. Run it after a switch, or in `hub vm`.
+set -u
+
+hub=$(dirname "$(dirname "$(readlink -f "$0")")")
+fails=0 n=0
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+# ok <name> <command...>: passes when the command exits 0 and nothing is missing
+ok() {
+  local name=$1; shift
+  n=$((n + 1))
+  if timeout 60 "$@" >"$tmp/out" 2>&1 </dev/null && ! grep -qiE "command not found|No such file or directory: '?/nix" "$tmp/out"; then
+    printf 'ok    %s\n' "$name"
+  else
+    printf 'FAIL  %s\n' "$name"; sed 's/^/      /' "$tmp/out" | tail -5
+    fails=$((fails + 1))
+  fi
+}
+# runs <name> <command...>: like ok, but the exit code does not matter (the
+# tool may rightly report a problem); only missing programs fail
+runs() {
+  local name=$1; shift
+  n=$((n + 1))
+  timeout 60 "$@" >"$tmp/out" 2>&1 </dev/null
+  if [ $? -ne 127 ] && ! grep -qiE "command not found|not found in PATH" "$tmp/out"; then
+    printf 'ok    %s\n' "$name"
+  else
+    printf 'FAIL  %s\n' "$name"; sed 's/^/      /' "$tmp/out" | tail -5
+    fails=$((fails + 1))
+  fi
+}
+has() { # has <tool> <program...>: every program a tool needs is installed
+  local tool=$1 p miss=(); shift
+  for p in "$@"; do command -v "$p" >/dev/null || miss+=("$p"); done
+  n=$((n + 1))
+  if [ ${#miss[@]} -eq 0 ]; then printf 'ok    %s needs %s\n' "$tool" "$*"
+  else printf 'FAIL  %s needs %s: missing %s\n' "$tool" "$*" "${miss[*]}"; fails=$((fails + 1)); fi
+}
+on() { grep -qE "^  $1 = true;" "$hub/hosts/$(hostname)/features.nix" 2>/dev/null; }
+app() { grep -qE "^  $1 = true;" "$hub/hosts/$(hostname)/apps.nix" 2>/dev/null; }
+
+echo "== bin/ is on PATH, scripts are executable"
+for f in "$hub"/bin/*; do
+  name=${f##*/}
+  [ "$(command -v "$name")" = "$f" ] || { n=$((n + 1)); fails=$((fails + 1)); echo "FAIL  $name is not the one on PATH ($(command -v "$name" || echo none))"; }
+  [ -x "$f" ] || { n=$((n + 1)); fails=$((fails + 1)); echo "FAIL  $name is not executable"; }
+done
+
+echo "== read-only commands"
+ok "hub --list" hub --list
+ok "hub: every recipe parses" just --justfile "$hub/justfile" --summary
+ok "feature list" feature list
+ok "apps list" apps list
+ok "theme list" theme list
+ok "settings json" sh -c 'settings json | jq -e ".palettes | length > 0"'
+ok "widgets list" widgets list
+ok "pj -l" pj -l
+ok "remind list" remind list
+ok "mode list" sh -c 'ls "$1"/config/mode/*.sh >/dev/null' _ "$hub"
+ok "mon list" mon list
+on lab && runs "lab list" lab list
+ok "vault status" sh -c 'vault status; true'
+runs "status" status
+runs "doctor" doctor
+runs "health" health
+runs "net" net
+runs "probe" probe
+runs "weather" weather
+runs "mkt" mkt
+runs "hp --list" hp --list
+ok "waybar config is JSON" sh -c 'sed "s|//.*||" "$1/config/waybar/config.jsonc" | jq -e . >/dev/null' _ "$hub"
+# the running sway re-reads its config and says if anything in it is wrong
+sock=${SWAYSOCK:-$(ls "/run/user/$(id -u)"/sway-ipc.*.sock 2>/dev/null | head -1)}
+[ -z "$sock" ] || ok "sway config loads" env SWAYSOCK="$sock" swaymsg reload
+
+echo "== programs the tools call"
+has cap fuzzel task
+has qr qrencode imv wl-paste
+has hp tailscale fzf
+has card wl-paste
+has grab grim slurp tesseract zbarimg wl-copy hyprpicker uvx
+has keys fzf python3
+has menu fuzzel bemoji qalc wl-copy cliphist
+has theme gsettings swaymsg makoctl
+has widgets eww jq swaymsg
+has settings eww jq
+has pj tmux nvim zoxide fzf
+has note nvim rg fzf
+has focus timew
+has new git
+has mon nwg-displays kanshi
+has hp tmux ssh
+has night wlsunset
+has review timew task git
+has triage task
+has sec sops age
+has vault gocryptfs secret-tool
+has untex uvx pandoc llama-server
+has upd-check nvd nix
+has mode swaymsg makoctl
+on mail && has email aerc
+on minutes && has minutes whisper-cli ffmpeg pw-record
+on minutes && has dictate whisper-cli wtype pw-record
+on lab && has lab virsh
+on ai && has ask ollama
+app inkscape && has fig inkscape
+app spotify && has "pad music" spotify
+app obsidian && has "mode school" obsidian
+app zotero && has "mode school" zotero
+
+echo
+if [ "$fails" -eq 0 ]; then echo "all $n checks passed"; else echo "$fails of $n checks FAILED"; exit 1; fi

@@ -7,7 +7,7 @@ Flake for the user's machines. Lives at `~/tec/nix` on an installed host (`hub.d
 ## Layout
 
 - `flake.nix` — every directory in `hosts/` is a `nixosConfiguration`
-- `hosts/<host>/default.nix` — imports `modules/workstation.nix` (the shared desktop: modules by feature flag, wifi, `hub vm`) with its `features.nix`, plus hardware quirks only; `features.nix` — on/off flags (`hub feature`); `hardware.nix` generated
+- `hosts/<host>/default.nix` — imports `modules/workstation.nix` (the shared desktop: modules by feature flag, wifi, `hub vm`) with its `features.nix`, plus hardware quirks only; `features.nix` — on/off flags (`hub feature`); `apps.nix` — optional apps (`hub apps`, catalog in `home/apps.nix`); `hardware.nix` generated
 - `modules/` — system modules, one concern each (core, desktop, keyboard, dev, lab, play, network, snapshots, backup, secrets, boot, power, meetings, minutes, mail, phone, fresh-root, extras (small flags), ai, hack, disk (whole disk or `hub.dualBoot`), remote-unlock, home-manager, workstation)
 - `home/` — Home Manager (shell, desktop, dev, apps, dirs, palette, calendar, finance)
 - `config/` — dotfiles, **linked live** into `~/.config` (edit + reload, no rebuild). Exception: `config/kanata` needs a rebuild
@@ -30,7 +30,8 @@ Flake for the user's machines. Lives at `~/tec/nix` on an installed host (`hub.d
 ## Commands
 
 - `hub switch` / `hub test` / `hub rollback` / `hub update`
-- `hub feature [list|on|off <name>]` — feature flags of this host
+- `hub feature [list|on|off <name>]` — feature flags of this host; `hub apps [list|on|off <name>]` — optional apps (same script, `HUB_FLAGS=apps`)
+- `hub selftest` — read-only check that every `bin/` tool runs and has its programs; run it in `hub vm` after changing tools
 - `hub status` (overview), `hub doctor` (open setup steps), `hub health` (problems), `hub diff` (what a switch would change)
 - `widgets list|on|off <name>|show|hide|pos top|bottom` — wallpaper dashboard; state in `config/eww/widgets.conf`
 - `theme [name|apply|list|wall <img>]` — the theme manager (palettes in `config/palette/`, wallpaper per palette); `settings` — eww window for palette and widgets (`Super+Shift+W`)

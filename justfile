@@ -76,6 +76,14 @@ widgets *args:
 feature *args:
     @bin/feature {{ args }}
 
+# do the tools in bin/ work here? read-only checks of every tool and the programs it needs
+selftest:
+    @bin/selftest
+
+# install/remove optional apps (anki, spotify, gimp, ...): menu, or hub apps list|on|off <name>
+apps *args:
+    @bin/apps {{ args }}
+
 # homelab services from config/homelab/services: which are up
 probe:
     @bin/probe

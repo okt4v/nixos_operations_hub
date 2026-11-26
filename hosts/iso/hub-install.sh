@@ -167,6 +167,13 @@ if [ "$host" = "+new" ]; then
   on=$(d --title " Features " --separate-output --checklist "$note" 0 90 0 "${items[@]}")
   sed -i -E 's/^(  [a-zA-Z]+ = )true;/\1false;/' "$hub/hosts/$host/features.nix"
   for n in $on; do sed -i -E "s/^(  $n = )false;/\1true;/" "$hub/hosts/$host/features.nix"; done
+  # apps: dev-hub's list, all off; the user picks
+  sed -E 's/^(  [a-zA-Z]+ = )true;/\1false;/' "$hub/hosts/dev-hub/apps.nix" >"$hub/hosts/$host/apps.nix"
+  items=()
+  while read -r n c; do items+=("$n" "$c" off); done \
+    < <(sed -nE 's/^  ([a-zA-Z]+) = (true|false); # (.*)/\1 \3/p' "$hub/hosts/$host/apps.nix")
+  on=$(d --title " Apps " --separate-output --checklist "Apps to install. Add or remove any later with: hub apps" 0 90 0 "${items[@]}")
+  for n in $on; do sed -i -E "s/^(  $n = )false;/\1true;/" "$hub/hosts/$host/apps.nix"; done
   cat >"$hub/hosts/$host/default.nix" <<EOF
 # $host. The shared setup is modules/workstation.nix; this machine's quirks go here.
 {
@@ -176,6 +183,7 @@ if [ "$host" = "+new" ]; then
   ];
 
   hub.disk = "/dev/sda";
+  hub.apps = import ./apps.nix;
 }
 EOF
   {

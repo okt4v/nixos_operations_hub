@@ -39,7 +39,7 @@ anything). It asks, in order:
    Anything but German is written into the host file (`hub.keyboard`), and the `keyboard` feature
    (the kanata layer, made for the German layout) starts off.
 3. **Host**: one from `hosts/`, or **a new host** for this machine: a name, then a checklist of
-   its features (dev-hub's as the start). It gets the shared desktop and this machine's `hardware.nix`;
+   its features (dev-hub's as the start) and one of apps to install (none ticked; `hub apps` later). It gets the shared desktop and this machine's `hardware.nix`;
    commit `hosts/<name>/` after the first login.
 4. **Time zone**, e.g. `Europe/Vienna` (anything else is written into the host file).
 5. **Disk**: each one with what is on it now (`ntfs 200G, EFI 0G, ...`). The stick itself is not offered.

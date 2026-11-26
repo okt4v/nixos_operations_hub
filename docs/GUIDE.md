@@ -15,10 +15,12 @@ only names the bindings you need daily.
 | `mode` | Switch context (`Super+O`). |
 
 | `hub feature` | Switch features on and off. |
+| `hub apps` | Install or remove optional apps (Anki, Spotify, GIMP, Signal, ...). |
 
 If something looks wrong: `hub status` (overview), `hub health` (problems), `hub doctor`
 (one-time setup steps still open, plus: disk space, unpushed repo changes, programs in
-`~/.local/bin` that hide the Nix ones).
+`~/.local/bin` that hide the Nix ones). `hub selftest` checks that every tool in `bin/` runs and
+finds the programs it needs (read-only; also good in `hub vm` after a change).
 
 ## Changing the system
 
@@ -35,6 +37,22 @@ The repo lives at `~/tec/nix`.
 - **Updates:** a weekly timer prepares an update on the branch `upd` and notifies you. `hub update` applies it.
 - `hub gc` deletes old generations (keeps 5). `hub search <words>` searches nixpkgs. `, <program>` runs a program once without installing it.
 - `hub vm [host]` boots a host's config in a throwaway VM window (password `test`). `Super+Shift+Escape` gives your shortcuts back to the host.
+
+## Apps
+
+Apps you may or may not want are a list in `hosts/<host>/apps.nix`, one per line, `true` =
+installed. The same controls as features:
+
+- `hub apps` opens a menu (also in the desktop menu, `Super+Shift+Space` → apps): Tab marks,
+  Enter toggles, then it offers `hub switch`, which installs or removes them.
+- `hub apps list`, `hub apps on|off <name>`.
+
+The catalog: thunderbird, spotify, mullvad (window), obsidian, anki, zotero, onlyoffice,
+libreoffice, vscode, gimp, inkscape, krita, darktable, audacity, kdenlive, qalculate, openscreen,
+godot, aseprite, blender, freecad, vlc, calibre, signal, element, telegram, discord. Always there:
+the browser, KeePassXC, mpv, LocalSend. A new app is a line in `home/apps.nix` (which package) and
+one in each host's `apps.nix`; a name there that the catalog does not know stops the build with
+its name. New hosts from the installer start with none and pick in a checklist.
 
 ## Features
 

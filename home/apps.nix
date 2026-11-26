@@ -31,9 +31,55 @@ let
       "keepassxc-browser@keepassxc.org" = amo "keepassxc-browser";
     };
   };
+  # Optional apps: on/off per host in hosts/<host>/apps.nix (`hub apps`).
+  # New app: a line here and a line in every host's apps.nix.
+  catalog = with pkgs; {
+    thunderbird = thunderbird;
+    spotify = spotify;
+    mullvad = mullvad-vpn; # GUI; the daemon is in modules/network.nix
+    obsidian = obsidian;
+    anki = anki-bin;
+    zotero = zotero;
+    onlyoffice = onlyoffice-desktopeditors;
+    libreoffice = libreoffice;
+    vscode = unstable.vscode; # ponytail: fails to build on 26.05 (patchPhase); back to stable once fixed
+    gimp = gimp;
+    inkscape = inkscape; # also `fig`
+    krita = krita;
+    darktable = darktable;
+    audacity = audacity;
+    kdenlive = kdePackages.kdenlive;
+    qalculate = qalculate-gtk;
+    openscreen = callPackage ../pkgs/openscreen.nix { };
+    godot = godot;
+    aseprite = aseprite;
+    # Blender's Wayland backend misbehaves under sway; run it through XWayland.
+    blender = symlinkJoin {
+      name = "blender";
+      paths = [ blender ];
+      nativeBuildInputs = [ makeWrapper ];
+      postBuild = "wrapProgram $out/bin/blender --unset WAYLAND_DISPLAY";
+    };
+    freecad = freecad;
+    vlc = vlc;
+    calibre = calibre;
+    signal = signal-desktop;
+    element = element-desktop;
+    telegram = telegram-desktop;
+    discord = vesktop; # Discord with Wayland screen sharing
+  };
+  wanted = osConfig.hub.apps;
+  unknown = lib.attrNames (lib.removeAttrs wanted (lib.attrNames catalog));
 in
 {
-  home.packages = with pkgs; [
+  assertions = [
+    {
+      assertion = unknown == [ ];
+      message = "hosts/<host>/apps.nix names apps that home/apps.nix does not know: ${toString unknown}";
+    }
+  ];
+
+  home.packages = lib.attrValues (lib.filterAttrs (n: _: wanted.${n} or false) catalog) ++ [
     (
       if osConfig.hub.features.browser or false then
         # the flake's own wrapper; its `.override { extraPolicies }` is lost
@@ -45,19 +91,7 @@ in
       else
         zen
     )
-    thunderbird
-    keepassxc
-    spotify
-    mullvad-vpn # GUI; the daemon is in modules/network.nix
-    obsidian
-    anki-bin
-    zotero
-    onlyoffice-desktopeditors
-    unstable.vscode # ponytail: fails to build on 26.05 (patchPhase); back to stable once fixed
-    gimp
-    inkscape # also `fig`
-    qalculate-gtk
-    (pkgs.callPackage ../pkgs/openscreen.nix { })
+    pkgs.keepassxc # always: the key hub (SSH agent, secret service)
   ];
 
   # KeePassXC is the key hub: its database serves SSH keys to the agent and

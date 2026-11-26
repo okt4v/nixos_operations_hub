@@ -69,7 +69,7 @@ tooltip label { color: @fg; padding: 4px; }
 #custom-health.ok { padding: 0; }
 #custom-focus { color: @warn; font-weight: 600; padding: 0 8px; }
 #custom-focus.off { padding: 0; }
-#custom-agenda, #custom-mkt { color: alpha(@fg, 0.6); padding: 0 8px; }
+#custom-agenda { color: alpha(@fg, 0.6); padding: 0 8px; }
 
 #custom-launch1,
 #custom-launch2,

@@ -17,8 +17,7 @@
     "modules-center": [
         "clock#time",
         "clock#date",
-        "custom/agenda",
-        "custom/mkt"
+        "custom/agenda"
     ],
     "modules-right": [
         "privacy",
@@ -101,12 +100,6 @@
         "exec": "khal list now 1d --format '{start-time} {title}' --day-format '' 2>/dev/null | head -1",
         "interval": 300,
         "on-click": "pad agenda",
-        "tooltip": false
-    },
-    "custom/mkt": {
-        "exec": "mkt --bar",
-        "interval": 300,
-        "on-click": "kitty --hold mkt",
         "tooltip": false
     },
     "custom/mail": {

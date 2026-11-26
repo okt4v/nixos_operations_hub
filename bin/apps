@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# apps — install or remove optional apps (Anki, Spotify, GIMP, ...) on this host.
+#   apps                 pick from a menu (Tab marks several), then apply
+#   apps list            every app, installed or not, and what it is
+#   apps on|off <name>   set one; `hub switch` installs or removes it
+# The list is hosts/<host>/apps.nix; which package each name is: home/apps.nix.
+HUB_FLAGS=apps exec "$(dirname "$(readlink -f "$0")")/feature" "$@"

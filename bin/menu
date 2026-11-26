@@ -9,7 +9,7 @@ conf=$(dirname "$(dirname "$(readlink -f "$0")")")/config
 
 case ${1:-} in
   "")
-    sec=$(printf '%s\n' windows projects modes widgets hosts services notes links snip card minutes mail grab qr focus clipboard calc emoji pw audio wifi bluetooth vpn night wall kill pass theme power | pick menu) || exit 0
+    sec=$(printf '%s\n' windows projects modes widgets hosts services notes links snip card minutes mail grab qr focus clipboard calc emoji pw audio wifi bluetooth vpn night wall kill pass theme apps power | pick menu) || exit 0
     exec "$0" "$sec"
     ;;
   windows)
@@ -77,6 +77,7 @@ case ${1:-} in
     ;;
   pass) exec pad pass ;;
   theme) exec settings ;;
+  apps) exec kitty apps ;;
   power)
     case $(printf '%s\n' lock suspend logout reboot poweroff | pick power) in
       lock) loginctl lock-session ;;

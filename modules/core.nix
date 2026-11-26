@@ -26,6 +26,13 @@
     description = "Feature flags of this host.";
   };
 
+  # The host's optional apps (hosts/<host>/apps.nix, catalog in home/apps.nix).
+  options.hub.apps = lib.mkOption {
+    type = lib.types.attrsOf lib.types.bool;
+    default = { };
+    description = "Optional apps of this host: name = on/off.";
+  };
+
   # Keyboard layout (xkb names), for the console, the disk passphrase at boot,
   # sway and X apps alike. The installer asks for it.
   options.hub.keyboard = {
