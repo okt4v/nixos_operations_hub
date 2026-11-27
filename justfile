@@ -84,6 +84,10 @@ selftest:
 test-tools *args:
     @bin/test-tools {{ args }}
 
+# evaluate every configuration the installer can make (each feature, all of them, dual boot, keyboards) and every host (~4 min)
+test-configs *args:
+    @bin/test-configs {{ args }}
+
 # install/remove optional apps (anki, spotify, gimp, ...): menu, or hub apps list|on|off <name>
 apps *args:
     @bin/apps {{ args }}
@@ -204,7 +208,7 @@ iso:
 flash:
     @bin/flash
 
-# install a test host with the real installer in a VM and boot it (~10 min, KVM); `dual`/`replace`: next to a fake Windows
+# install a test host with the real installer in a VM and boot it (~10 min, KVM); `dual`/`replace`: next to a fake Windows, `fresh`: freshRoot
 test-install *args:
     @bin/test-install {{ args }}
 

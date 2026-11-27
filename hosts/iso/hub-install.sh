@@ -210,12 +210,16 @@ if [ "$host" = "+new" ]; then
   # features: every `name = true|false; # what` line of dev-hub's features.nix
   items=()
   # the kanata layer (config/kanata) is written for the German layout: off elsewhere
+  # these need your secrets (or keys, or a server) first, so they cannot work
+  # on a fresh install: not offered here, switched on later with hub feature
+  later=" mail calendar backupExternal backupHomelab backupCloud secureBoot "
   while read -r n v c; do
+    [[ $later != *" $n "* ]] || continue
     [ "$n" != keyboard ] || [ "$kbl" = de ] || v=false
     items+=("$n" "$c" "$([ "$v" = true ] && echo on || echo off)")
   done \
     < <(sed -nE 's/^  ([a-zA-Z]+) = (true|false); # (.*)/\1 \2 \3/p' "$hub/hosts/$host/features.nix")
-  note="Space switches a feature. Change them later with: hub feature"
+  note="Space switches a feature. Change them later with: hub feature\nMail, calendar, backups and Secure Boot need your secrets or keys first: hub feature on <name> after the install (docs/INSTALL.md)."
   [ "$kbl" = de ] || note+="\nkeyboard starts off: its layer is made for the German layout."
   on=$(d --title " Features " --separate-output --checklist "$note" 0 90 0 "${items[@]}")
   sed -i -E 's/^(  [a-zA-Z]+ = )true;/\1false;/' "$hub/hosts/$host/features.nix"
@@ -409,8 +413,10 @@ else
 fi
 nixos-enter --root /mnt -c "chown -R oktav:users /home/oktav" >>"$log" 2>&1
 printf 'oktav:%s\n' "$upass" | nixos-enter --root /mnt -c chpasswd >>"$log" 2>&1
-# freshRoot (modules/fresh-root.nix) reads the password from /persist
-[ ! -d /mnt/persist ] || { mkdir -p /mnt/persist/etc && openssl passwd -6 -stdin <<<"$upass" >/mnt/persist/etc/hub-password; }
+# freshRoot (modules/fresh-root.nix) reads the password from /persist/etc,
+# and /persist is the root subvolume, which is /mnt now
+! grep -qsE '^  freshRoot = true;' "$hub/hosts/$host/features.nix" ||
+  { mkdir -p /mnt/etc && openssl passwd -6 -stdin <<<"$upass" >/mnt/etc/hub-password && chmod 600 /mnt/etc/hub-password; }
 
 # a copy of the LUKS header, kept off this disk: if the header is ever damaged,
 # the passphrase alone cannot open the disk any more

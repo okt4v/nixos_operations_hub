@@ -18,7 +18,12 @@
 
   config.sops = {
     age.keyFile = "/home/oktav/.config/sops/age/keys.txt";
-    defaultSopsFile = lib.mkIf (builtins.pathExists ../secrets/secrets.yaml) ../secrets/secrets.yaml;
+    # only read when a switched-on feature declares a secret
+    defaultSopsFile =
+      if builtins.pathExists ../secrets/secrets.yaml then
+        ../secrets/secrets.yaml
+      else
+        throw "A feature you switched on (mail, calendar, a backup) needs secrets: run `hub sec`, add them (docs/INSTALL.md), git add secrets/secrets.yaml, then switch again.";
     secrets.icloud = lib.mkIf config.hub.cal.enable { owner = "oktav"; };
   };
 }

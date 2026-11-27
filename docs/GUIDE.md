@@ -31,9 +31,9 @@ The repo lives at `~/tec/nix`.
 - **Everything else** (`modules/`, `home/`, `hosts/`): edit, then `hub switch`.
   `hub test` activates until the next reboot only; `hub rollback` returns to the previous generation.
 - `hub diff` shows which packages a switch would change. `hub check` evaluates all hosts and lints the scripts.
-- **Tests** (local, need KVM): `hub test-install [whole|dual|replace|tui]` installs with the real
+- **Tests** (local, need KVM): `hub test-install [whole|dual|replace|tui|fresh]` installs with the real
   installer in a VM (`tui` through its menus by keystroke); `hub test-tools` runs `hub selftest`
-  inside a dev-hub VM.
+  inside a dev-hub VM; `hub test-configs` evaluates every configuration the installer can write.
 - **Disk space**: when a build leaves less than 5 GB free, Nix deletes unused store paths until 20 GB
   are free (your generations stay). Old generations are pruned on their own (the newest 10, and
   all from the last 14 days, stay).
@@ -264,7 +264,7 @@ most commands (carapace) in a fuzzy menu. `ls`/`la` list with lsd (git status co
   (a name and a URL per line). One that is down shows in the bar's health indicator and in the
   `services` widget.
 - `hp` picks a machine from the tailnet or SSH config and opens SSH with a resumed tmux session.
-- `hub deploy <host>` rebuilds a remote host from here; `hub install <host> <ip>` installs one. `hub iso` (or `bin/build-iso` on a machine without NixOS) builds the installer into `iso/`, `hub flash` writes it to a USB stick; on boot it starts `hub-install`, a menu-driven installer (whole disk, free space or one partition next to Windows; see docs/INSTALL.md). `hub test-install [whole|dual|replace|tui]` installs a test host with it in a VM (~10 min; `dual` into free space next to a fake Windows, `replace` over one of its partitions, `tui` through the menus by keystroke). `hub test-tools` boots dev-hub in a VM and runs `hub selftest` in it.
+- `hub deploy <host>` rebuilds a remote host from here; `hub install <host> <ip>` installs one. `hub iso` (or `bin/build-iso` on a machine without NixOS) builds the installer into `iso/`, `hub flash` writes it to a USB stick; on boot it starts `hub-install`, a menu-driven installer (whole disk, free space or one partition next to Windows; see docs/INSTALL.md). `hub test-install [whole|dual|replace|tui|fresh]` installs a test host with it in a VM (~10 min; `dual` into free space next to a fake Windows, `replace` over one of its partitions, `tui` through the menus by keystroke, `fresh` with the freshRoot feature). `hub test-tools` boots dev-hub in a VM and runs `hub selftest` in it. `hub test-configs` evaluates every configuration the installer can write (each feature alone, all of them with every app, dual boot, other keyboards and time zones) and every host.
 - `hub net` shows wifi, address, VPN and tailnet state.
 - `ask <question>` queries the local model (needs `hub.ai.enable`); it reads stdin too: `git diff | ask "review this"`.
 

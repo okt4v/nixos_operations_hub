@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# test-configs — does every configuration the installer can produce evaluate?
+# Builds new hosts the way hub-install writes them (modules/workstation.nix with
+# a features set, hub.apps, the disk, dual boot, keyboard, time zone) and
+# evaluates each system: all features off, all the installer offers on with
+# every app, each feature alone (one the installer holds back for later may
+# fail, but only with a message that says what to set up first), plus the
+# dual-boot / other-keyboard / time-zone variants, and every host in hosts/. Catches option conflicts, failed assertions and missing
+# packages; it does not download or build them (bin/test-install does that).
+#   bin/test-configs [jobs]    (hub test-configs; jobs: parallel evals, default 3)
+set -euo pipefail
+repo=$(dirname "$(dirname "$(readlink -f "$0")")")
+jobs=${1:-3}
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+# the installer's `later` list: need secrets or keys, not offered at install
+later=$(sed -nE 's/^  later="(.*)"$/\1/p' "$repo/hosts/iso/hub-install.sh")
+[ -n "$later" ] || { echo "test-configs: no later= list in hub-install.sh" >&2; exit 1; }
+# expr <name> <features: offered|none|only:<flag>> <apps: all|none> [extra nix module body]
+expr() {
+  cat <<EOF
+let
+  f = builtins.getFlake "git+file://$repo";
+  lib = f.inputs.nixpkgs.lib;
+  flags = import "\${f}/hosts/dev-hub/features.nix";
+  apps = import "\${f}/hosts/dev-hub/apps.nix";
+  want = "$2";
+  later = lib.filter (x: x != "") (lib.splitString " " "$later");
+  feats = lib.mapAttrs (n: _: (want == "offered" && !lib.elem n later) || want == "only:\${n}") flags;
+in
+(lib.nixosSystem {
+  specialArgs = { inputs = f.inputs; };
+  modules = [
+    (import "\${f}/modules/workstation.nix" feats)
+    ({ modulesPath, ... }: {
+      imports = [ (modulesPath + "/profiles/qemu-guest.nix") ];
+      nixpkgs.hostPlatform = "x86_64-linux";
+      networking.hostName = "test";
+      system.nixos.distroName = "ophub NixOS";
+      hub.disk = "/dev/vda";
+      hub.apps = lib.mapAttrs (_: _: "$3" == "all") apps;
+      $4
+    })
+  ];
+}).config.system.build.toplevel.drvPath
+EOF
+}
+cases=$tmp/cases
+{
+  printf '%s\0' "all-off|none|none|"
+  printf '%s\0' "all-offered|offered|all|"
+  printf '%s\0' "all-offered,dual,us,tz|offered|all|hub.dualBoot = { enable = true; esp = \"/dev/disk/by-uuid/0000-0000\"; }; hub.keyboard = { layout = \"us\"; variant = \"\"; }; time.timeZone = \"America/New_York\";"
+  printf '%s\0' "off,dual,fr,tz|none|none|hub.dualBoot = { enable = true; esp = \"/dev/disk/by-uuid/0000-0000\"; }; hub.keyboard = { layout = \"fr\"; variant = \"azerty\"; }; time.timeZone = \"Asia/Tokyo\";"
+  sed -nE 's/^  ([a-zA-Z]+) = (true|false);.*/\1/p' "$repo/hosts/dev-hub/features.nix" |
+    while read -r n; do
+      if [[ $later == *" $n "* ]]; then printf '%s\0' "later $n|only:$n|none|"; else printf '%s\0' "only $n|only:$n|none|"; fi
+    done
+} >"$cases"
+
+one() { # one "<name>|<features>|<apps>|<extra>"
+  IFS='|' read -r name feats apps extra <<<"$1"
+  out=$tmp/${name//[^a-zA-Z0-9]/_}
+  if nix eval --impure --raw --expr "$(expr "$name" "$feats" "$apps" "$extra")" >"$out" 2>&1; then
+    echo "ok    $name"
+  elif [[ $name == later* ]] && grep -qE "hub sec|set hub.backup.homelab.repo" "$out"; then
+    echo "ok    $name (says what to set up first)"
+  else
+    echo "FAIL  $name"; grep -E "error|assert" "$out" | grep -v "^warning" | head -5 | sed 's/^/      /'
+    return 1
+  fi
+}
+export -f one expr; export repo tmp later
+
+echo "evaluating $(tr -cd '\0' <"$cases" | wc -c) installer configurations and every host ($jobs at a time)"
+fails=0
+xargs -0 -P "$jobs" -I{} bash -c 'one "$1"' _ {} <"$cases" || fails=1
+for h in "$repo"/hosts/*/; do
+  h=$(basename "$h")
+  if nix eval --raw "$repo#nixosConfigurations.$h.config.system.build.toplevel.drvPath" >"$tmp/h" 2>&1; then echo "ok    host $h"
+  else echo "FAIL  host $h"; grep error "$tmp/h" | head -5 | sed 's/^/      /'; fails=1; fi
+done
+[ "$fails" = 0 ] && echo "all configurations evaluate" || { echo "some configurations FAILED"; exit 1; }

@@ -48,6 +48,8 @@ in
       repo = lib.mkOption {
         type = lib.types.str;
         example = "sftp:nas:/srv/restic/dev-hub";
+        default = throw "backupHomelab is on: set hub.backup.homelab.repo (e.g. \"sftp:nas:/srv/restic/<host>\") in hosts/<host>/default.nix.";
+        defaultText = "none; set it";
         description = "restic repository URL on the server.";
       };
     };

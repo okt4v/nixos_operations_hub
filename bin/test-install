@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# test-install [whole|dual|replace|tui] — install a small test host with the
+# test-install [whole|dual|replace|tui|fresh] — install a small test host with the
 # real installer in a VM, boot it, unlock the disk over SSH (remote unlock),
 # check it came up. dual/replace/tui first put a fake Windows (EFI, C:, D:)
 # on the disk; dual installs into the free space after it, replace over D:.
 # whole/dual/replace use the installer's no-questions mode; tui goes through
 # its menus by keystroke like a person (tmux): first a new host with its
 # feature and app lists up to the summary (cancelled), then a real install
-# into the free space. About 10 minutes each; needs KVM.
+# into the free space. fresh: whole disk with the freshRoot feature (/ is a RAM
+# disk; the password must come from /persist). About 10 minutes each; needs KVM.
 #   bin/test-install [mode]    (hub test-install)
 set -euo pipefail
 mode=${1:-whole}
@@ -29,9 +30,10 @@ iso=$(nix build --no-link --print-out-paths --impure --expr "
     f = builtins.getFlake \"git+file://$repo\";
     pkgs = f.nixosConfigurations.iso.pkgs;
     key = \"$(cat key.pub)\";
+    fresh = \"$mode\" == \"fresh\";
     smoke = pkgs.writeText \"smoke.nix\" ''
       { modulesPath, ... }: {
-        imports = [ (modulesPath + \"/profiles/qemu-guest.nix\") ../../modules/core.nix ../../modules/disk.nix ../../modules/boot.nix ../../modules/remote-unlock.nix ];
+        imports = [ (modulesPath + \"/profiles/qemu-guest.nix\") ../../modules/core.nix ../../modules/disk.nix ../../modules/boot.nix ../../modules/remote-unlock.nix \${pkgs.lib.optionalString fresh \"../../modules/fresh-root.nix\"} ];
         nixpkgs.hostPlatform = \"x86_64-linux\";
         hub.disk = \"/dev/nvme0n1\";
         services.openssh.enable = true;
@@ -42,6 +44,7 @@ iso=$(nix build --no-link --print-out-paths --impure --expr "
     src = pkgs.runCommand \"hub-test-src\" { } ''
       cp -r \${f} \$out && chmod -R u+w \$out
       mkdir \$out/hosts/smoke && cp \${smoke} \$out/hosts/smoke/default.nix
+      \${pkgs.lib.optionalString fresh \"echo '  freshRoot = true;' > \$out/hosts/smoke/features.nix\"}
     '';
   in
   (f.nixosConfigurations.iso.extendModules {
@@ -68,7 +71,7 @@ vm -cdrom "$iso" -boot order=d
 up 2224
 
 layout=whole
-if [ "$mode" != whole ]; then
+if [ "$mode" != whole ] && [ "$mode" != fresh ]; then
   echo "making a fake Windows: EFI partition with a marker file, a 5G C: and a 32G D: partition"
   s 'sgdisk -n 0:0:+100M -t 0:ef00 -n 0:0:+5G -t 0:0700 -n 0:0:+32G -t 0:0700 /dev/vda && udevadm settle &&
      mkfs.vfat /dev/vda1 >/dev/null && mount /dev/vda1 /mnt && mkdir -p /mnt/EFI/Microsoft &&
@@ -153,7 +156,13 @@ s 'grep -q "ophub NixOS" /etc/os-release && [ "$(stat -c %U /home/oktav/tec/nix/
    grep -q -- "--- choices" /var/log/hub-install.log && grep -q -- "--- done" /var/log/hub-install.log &&
    readlink /etc/localtime | grep -q New_York && grep -q "XKB_DEFAULT_LAYOUT=\"us\"" /etc/set-environment' \
   || { echo "FAIL: installed system" >&2; exit 1; }
-if [ "$mode" != whole ]; then
+if [ "$mode" = fresh ]; then
+  # shellcheck disable=SC2016 # runs in the VM
+  # / is in RAM (tmpfs or rootfs), /persist on disk; the login hash is the one the installer stored in /persist, not the initial password
+  s '[ "$(findmnt -no FSTYPE /)" != btrfs ] && [ "$(findmnt -no FSTYPE /persist)" = btrfs ] && [ "$(getent shadow oktav | cut -d: -f2)" = "$(cat /persist/etc/hub-password)" ]' \
+    || { s 'findmnt -no FSTYPE /; ls -l /persist/etc/hub-password; getent shadow oktav | cut -c1-20' >&2
+         echo "FAIL: fresh root, or the password is not the installer's" >&2; exit 1; }
+elif [ "$mode" != whole ]; then
   # shellcheck disable=SC2016 # runs in the VM
   s '[ -f /efi/EFI/Microsoft/windows ] && [ "$(lsblk -no PARTTYPE /dev/vda2)" = ebd0a0a2-b9e5-4433-87c0-68b6b72699c7 ] &&
      [ "$(lsblk -no PARTLABEL "$(findmnt -no SOURCE /boot)")" = nixos-boot ] && ls /boot/EFI/nixos >/dev/null' \
