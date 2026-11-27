@@ -44,6 +44,8 @@ in
 
   nixpkgs.hostPlatform = "x86_64-linux";
   image.baseName = lib.mkForce "ophub-nixos-${config.system.nixos.release}-x86_64";
+  # the installer only makes btrfs on LUKS (+ vfat boot); no zfs (and its import warning)
+  boot.supportedFilesystems.zfs = lib.mkForce false;
   isoImage.volumeID = "ophub-${config.system.nixos.release}";
   nix.settings.experimental-features = [
     "nix-command"

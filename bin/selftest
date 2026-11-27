@@ -9,6 +9,12 @@ hub=$(dirname "$(dirname "$(readlink -f "$0")")")
 fails=0 n=0
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
+# not switched to this repo yet: every check would fail for the same reason
+[ "$(command -v selftest)" = "$hub/bin/selftest" ] || {
+  echo "selftest: $hub/bin is not on PATH, so this machine does not run this repo's config." >&2
+  echo "Switch to it first (hub switch, repo at hub.dir), or test in a VM: hub test-tools" >&2
+  exit 1
+}
 
 # ok <name> <command...>: passes when the command exits 0 and nothing is missing
 ok() {
